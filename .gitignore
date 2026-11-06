@@ -1,0 +1,37 @@
+# Ambientes e caches Python
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+.pytest_cache/
+.ruff_cache/
+
+# Segredos e configurações locais
+.env
+.env.*
+!.env.example
+.python-version.local
+
+# Dados, modelos e resultados gerados (manter apenas arquivos README)
+/data/raw/**
+!/data/raw/README.md
+/data/processed/**
+!/data/processed/README.md
+/output/**
+!/output/README.md
+!/output/img/
+/output/img/**
+!/output/img/README.md
+*.pt
+*.pth
+*.ckpt
+*.h5
+*.keras
+*.onnx
+
+# SO e IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
