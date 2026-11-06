@@ -2,7 +2,7 @@
 
 Este repositório organiza os experimentos computacionais de um capítulo sobre **prontidão da infraestrutura de dados e governança territorial**. O caso empírico é a detecção de conflitos humanos em vídeo com uma CNN + BiLSTM; o foco técnico atual é aprofundar a avaliação do modelo MobileNetV2 + BiLSTM, com atenção, e produzir resultados reproduzíveis que apoiem a discussão do capítulo.
 
-Os notebooks são a interface de experimentação: apresentam objetivo, parâmetros, execução e gráficos. O processamento fica em scripts Python reutilizáveis, chamados pelos notebooks, para manter a implementação fora das células e permitir executar o mesmo pipeline sem abrir o notebook. O dataset, o código original e os artefatos de execução ainda precisam ser recebidos; portanto, os experimentos não estão prontos para rodar.
+Os notebooks são a interface de experimentação: apresentam objetivo, parâmetros experimentais, execução e gráficos. A arquitetura planejada concentra o processamento e a apresentação em um pacote Python reutilizável, chamado pelos notebooks e por scripts de linha de comando. O dataset, o código original e os artefatos de execução ainda precisam ser recebidos; portanto, os experimentos não estão prontos para rodar.
 
 ## Começar
 
@@ -20,15 +20,16 @@ No Jupyter, selecione o kernel **Python (BILSTM Experimentos)** e abra um notebo
 
 | Caminho | O que deve conter |
 | --- | --- |
-| `notebooks/` | Interfaces dos experimentos: motivação, parâmetros, chamadas ao pipeline, tabelas e gráficos. |
-| `scripts/` | Comandos de pipeline independentes e reutilizáveis, sem lógica de apresentação de notebook. |
-| `configs/` | Configurações versionadas dos experimentos, uma por execução identificável. |
+| `notebooks/` | Interface dos experimentos: pergunta, parâmetros experimentais, chamadas ao pipeline, tabelas e gráficos. |
+| `scripts/` | Entradas finas de linha de comando que chamam a mesma API dos notebooks. |
+| `src/bilstm_pipeline/` | Pacote Python planejado para processamento, orquestração e apresentação; ainda não criado. |
+| `configs/` | Parâmetros versionados por experimento ou protocolo, usados para gerar a configuração efetiva de cada execução. |
 | `data/raw/` | Dados originais, mantidos fora do Git. Não editar os arquivos de origem. |
 | `data/processed/` | Dados derivados e divisões de treino, validação e teste, também fora do Git. |
 | `output/` | Resultados gerados, logs, checkpoints e figuras; por padrão, fora do Git. |
 | `docs/` | Contexto da pesquisa, decisões, documentação e tutoriais. |
 
-Consulte `docs/GUIA_DE_USO.md` antes de criar arquivos ou pastas. Ele define o fluxo notebook → configuração → scripts → resultados e orienta a manter cada coisa no lugar previsto.
+Consulte o [guia de uso](docs/GUIA_DE_USO.md) antes de criar arquivos ou pastas. A [arquitetura planejada](docs/plano-de-implementacao/ARQUITETURA.md) descreve o fluxo e o padrão de gráficos; o [backlog](docs/plano-de-implementacao/BACKLOG.md) é a fonte de andamento. Agentes devem seguir também [AGENTS.md](AGENTS.md).
 
 ## Escopo científico atual
 
