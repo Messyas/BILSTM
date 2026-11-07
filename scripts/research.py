@@ -8,10 +8,11 @@ def main() -> None:
     """Dispatch research steps. / Executa as etapas de pesquisa."""
     parser = argparse.ArgumentParser(description="RLVS research pipeline (proposed reconstruction)")
     commands = parser.add_subparsers(dest="command", required=True)
-    prepare = commands.add_parser("prepare", help="Inventory and split videos by class and exact hash")
+    prepare = commands.add_parser("prepare", help="Inventory and split videos by class and group")
     prepare.add_argument("--config", default="configs/rlvs_baseline.toml")
     prepare.add_argument("--dataset-root")
     prepare.add_argument("--manifest")
+    prepare.add_argument("--groups", help="Reviewed CSV mapping every sample_id to a group_id")
     prepare.add_argument("--dataset-name", default="RLVS")
     prepare.add_argument("--source", default="mohamedmustafa/real-life-violence-situations-dataset")
     train = commands.add_parser("train", help="Train the proposed reconstruction")
@@ -31,7 +32,7 @@ def main() -> None:
     try:
         if args.command == "prepare":
             from bilstm_pipeline.research_data import prepare_dataset
-            output = prepare_dataset(args.config, dataset_root=args.dataset_root, manifest_path=args.manifest, dataset_name=args.dataset_name, source=args.source)
+            output = prepare_dataset(args.config, dataset_root=args.dataset_root, manifest_path=args.manifest, dataset_name=args.dataset_name, source=args.source, groups_path=args.groups)
         elif args.command == "train":
             from bilstm_pipeline.research_training import train_model
             output = train_model(args.config, dataset_root=args.dataset_root, manifest_path=args.manifest, seed=args.seed, device=args.device)

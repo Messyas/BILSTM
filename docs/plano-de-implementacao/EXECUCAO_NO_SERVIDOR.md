@@ -19,7 +19,7 @@ Configure o acesso ao Kaggle e baixe o RLVS como explicado no [guia de uso](../G
 
 Revise `configs/rlvs_baseline.toml` antes da execução. Os valores de épocas, lote, taxa de aprendizado, dropout, unidades, limiar, split e perturbações são parâmetros explícitos da reconstrução, não valores confirmados do experimento original. O limiar é fixado no arquivo antes do teste; não há calibração automática. Seeds registradas reduzem variação, mas não garantem determinismo entre GPUs, bibliotecas e sistemas.
 
-O inventário reconhece arquivos de vídeo em diretórios chamados `Violence` e `NonViolence` (ignorando maiúsculas e espaços). Ele agrupa por SHA-256 e divide cada classe por grupos em treino, validação e teste, sem compartilhar um arquivo idêntico entre partições. Vídeos reeditados ou gravados na mesma cena podem ter hashes diferentes: revise essas relações e a licença antes da análise científica. A proporção final pode variar por causa do número de grupos. A divisão não garante independência por cena ou canal de origem.
+O inventário reconhece arquivos de vídeo em diretórios chamados `Violence` e `NonViolence` (ignorando maiúsculas e espaços). Por padrão ele agrupa por SHA-256 e divide cada classe por grupos em treino, validação e teste, sem compartilhar um arquivo idêntico entre partições. Vídeos reeditados ou gravados na mesma cena podem ter hashes diferentes: revise essas relações e a licença antes da análise científica. A proporção final pode variar por causa do número de grupos. A divisão padrão não garante independência por cena ou canal de origem.
 
 ## 3. Preparar dados
 
@@ -29,7 +29,19 @@ uv run --no-sync python scripts/research.py prepare --config configs/rlvs_baseli
 
 O comando identifica vídeos, classes e hashes e grava `data/processed/rlvs-baseline.json`, sem sobrescrever um manifesto existente. Ele não altera os arquivos originais. Revise as contagens por classe e as atribuições no manifesto; o notebook `04_prepare_rlvs.ipynb` mostra o resumo. Se o dataset usar nomes diferentes de diretórios ou outra organização, a preparação falhará e a adaptação deverá ser revisada explicitamente.
 
-A leitura decodifica o vídeo inteiro, redimensiona para 100 × 100 e seleciona 15 quadros uniformemente ao longo dele; vídeos mais curtos repetem índices. É uma escolha documentada desta implementação e precisa ser comparada ao pré-processamento original. O método foi pensado para clipes curtos e pode consumir muita memória em vídeos longos.
+Quando houver metadados revisados, é possível informar um CSV UTF-8 com cabeçalho `sample_id,group_id`, contendo exatamente uma linha para cada vídeo. `sample_id` é o caminho relativo à raiz do dataset, com `/`; use o mesmo `group_id` para vídeos da mesma cena ou origem que não possam cruzar partições. Por exemplo:
+
+```csv
+sample_id,group_id
+Violence/video1.mp4,scene-1
+Violence/video2.mp4,scene-1
+```
+
+O exemplo é ilustrativo e não representa um mapeamento completo. Com o CSV completo preparado e revisado, informe `--groups caminho/grupos.csv` ao comando `prepare`. O manifesto registra o hash do CSV e os grupos; IDs ausentes ou extras, amostras repetidas e arquivos idênticos em grupos distintos são recusados. O algoritmo atual exige que todos os vídeos de um grupo tenham a mesma classe e pelo menos três grupos por classe; se uma cena contiver ambas as classes, será necessário definir e implementar outro protocolo de divisão. Não se deve separar a cena artificialmente para contornar essa restrição. O CSV só protege contra relações nele identificadas; a equipe deve revisar sua completude.
+
+A leitura faz duas passagens sequenciais pelo vídeo: conta os quadros decodificáveis e retém apenas os 15 selecionados uniformemente. Vídeos mais curtos repetem índices. Isso limita a memória dos quadros armazenados, mas aumenta o trabalho de decodificação; cada quadro original e os lotes do modelo ainda ocupam memória. É uma escolha desta implementação e precisa ser comparada ao pré-processamento original.
+
+**Limite temporal:** a amostragem usa o vídeo inteiro e a BiLSTM bidirecional usa os quadros posteriores da sequência. A previsão é uma classificação offline do clipe completo, não uma detecção causal no instante de cada quadro nem um teste de antecipação. Cada chamada cria o estado recorrente da sequência sem carregá-lo para o próximo vídeo. Para aplicação ao vivo seriam necessários janelas disponíveis até o instante de decisão, regras de agregação e medição do atraso de aquisição.
 
 ## 4. Treinar
 

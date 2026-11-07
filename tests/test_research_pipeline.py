@@ -42,6 +42,48 @@ class PreparationTests(unittest.TestCase):
             with self.assertRaises(FileExistsError):
                 prepare_dataset(config_path)
 
+    def test_reviewed_groups_are_kept_together_and_mapping_is_complete(self):
+        from bilstm_pipeline.research_data import _apply_groups, inventory_videos
+        from bilstm_pipeline.dataset import validate_split
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for label, folder in enumerate(("NonViolence", "Violence")):
+                directory = root / folder
+                directory.mkdir()
+                for index in range(6):
+                    (directory / f"v{index}.mp4").write_bytes(f"{label}-{index}".encode())
+            records = inventory_videos(root)
+            mapping = root / "groups.csv"
+            rows = ["sample_id,group_id"]
+            for record in records:
+                folder = Path(record["path"]).parts[0]
+                number = int(Path(record["path"]).stem[1:])
+                rows.append(f"{record['sample_id']},{folder}-{number // 2}")
+            mapping.write_text("\n".join(rows), encoding="utf-8")
+            config = load_research_config("configs/rlvs_baseline.toml")
+            config["data"] = {"root": str(root), "manifest": str(root / "manifest.json")}
+            config_path = root / "config.toml"
+            with config_path.open("wb") as stream:
+                tomli_w.dump(config, stream)
+            manifest = load_manifest(prepare_dataset(config_path, groups_path=mapping))
+            self.assertIsNotNone(manifest["split_metadata"]["group_mapping_sha256"])
+            validate_split(manifest["records"], manifest["assignments"])
+            for group in {record["group_id"] for record in manifest["records"]}:
+                self.assertEqual(len({manifest["assignments"][r["sample_id"]] for r in manifest["records"] if r["group_id"] == group}), 1)
+            mapping.write_text("\n".join(rows[:-1]), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "exactly all"):
+                _apply_groups(records, mapping)
+
+    def test_reviewed_mapping_rejects_identical_content_in_distinct_groups(self):
+        from bilstm_pipeline.research_data import _apply_groups
+        digest = "a" * 64
+        records = [{"sample_id": name, "video_id": name, "group_id": name, "source": "test", "label": 0, "sha256": digest} for name in ("a", "b")]
+        with tempfile.TemporaryDirectory() as temporary:
+            mapping = Path(temporary) / "groups.csv"
+            mapping.write_text("sample_id,group_id\na,one\nb,two\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "duplicate content"):
+                _apply_groups(records, mapping)
+
 
 @unittest.skipUnless(_HAS_TRAINING, "Install the training dependency group to check the research pipeline.")
 class ResearchPipelineTests(unittest.TestCase):
@@ -56,19 +98,38 @@ class ResearchPipelineTests(unittest.TestCase):
         from bilstm_pipeline.robustness import jpeg_compression
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "example.avi"
-            writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"MJPG"), 5, (32, 32))
+            writer = cv2.VideoWriter(str(path), getattr(cv2, "VideoWriter_fourcc")(*"MJPG"), 5, (32, 32))
             self.assertTrue(writer.isOpened())
             for index in range(4):
                 writer.write(np.full((32, 32, 3), index * 40, dtype=np.uint8))
             writer.release()
             frames = decode_video(path, frames=6, width=32, height=32)
             self.assertEqual(frames.shape, (6, 32, 32, 3))
+            self.assertEqual([round(float(frame.mean()) * 255) for frame in frames], [0, 0, 40, 40, 80, 120])
             self.assertEqual(tuple(video_tensor(frames).shape), (6, 3, 32, 32))
             self.assertEqual(jpeg_compression(frames, quality=50).shape, frames.shape)
         model = ConflictModel(hidden_size=4, dropout=0.0, pretrained=False).eval()
         with torch.inference_mode():
             logits = model(torch.zeros((1, 2, 3, 32, 32)))
+            model(torch.ones((1, 2, 3, 32, 32)))
+            repeated = model(torch.zeros((1, 2, 3, 32, 32)))
         self.assertEqual(tuple(logits.shape), (1, 2))
+        self.assertTrue(torch.equal(logits, repeated))
+
+    def test_decode_releases_capture_when_second_pass_fails(self):
+        from bilstm_pipeline.research_data import decode_video
+        image = np.zeros((8, 8, 3), dtype=np.uint8)
+        first = Mock()
+        first.isOpened.return_value = True
+        first.read.side_effect = [(True, image), (True, image), (False, None)]
+        second = Mock()
+        second.isOpened.return_value = True
+        second.read.side_effect = [(True, image), (False, None)]
+        with patch("cv2.VideoCapture", side_effect=[first, second]):
+            with self.assertRaisesRegex(ValueError, "changed between passes"):
+                decode_video(Path("video.mp4"), frames=2, width=8, height=8)
+        first.release.assert_called_once()
+        second.release.assert_called_once()
 
     def test_compression_command_with_mocked_ffmpeg(self):
         from bilstm_pipeline.research_evaluation import _compressed_video_frames
@@ -97,7 +158,7 @@ class ResearchPipelineTests(unittest.TestCase):
             with patch("bilstm_pipeline.research_evaluation.run_path", return_value=root):
                 _, _, device, loaded = _load_run("example", None)
             self.assertEqual(device.type, "cpu")
-            self.assertTrue(torch.equal(original.classifier[1].weight, loaded.classifier[1].weight))
+            self.assertTrue(torch.equal(original.state_dict()["classifier.1.weight"], loaded.state_dict()["classifier.1.weight"]))
 
     def test_orchestration_with_mocked_training_and_inference(self):
         import torch

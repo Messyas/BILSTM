@@ -1,5 +1,6 @@
 """Prepare RLVS records and video sequences. / Prepara registros e sequências do RLVS."""
 
+import csv
 import hashlib
 import json
 from pathlib import Path
@@ -52,7 +53,28 @@ def inventory_videos(root: str | Path) -> list[dict]:
     return records
 
 
-def prepare_dataset(config_path: str | Path, *, dataset_root: str | Path | None = None, manifest_path: str | Path | None = None, dataset_name: str = "RLVS", source: str = "mohamedmustafa/real-life-violence-situations-dataset") -> Path:
+def _apply_groups(records: list[dict], groups_path: str | Path) -> None:
+    """Apply a reviewed mapping. / Aplica um mapeamento revisado."""
+    with Path(groups_path).open(encoding="utf-8-sig", newline="") as stream:
+        reader = csv.DictReader(stream)
+        if reader.fieldnames != ["sample_id", "group_id"]:
+            raise ValueError("Group CSV must have exactly the columns sample_id,group_id.")
+        groups = {}
+        for row in reader:
+            sample, group = row.get("sample_id"), row.get("group_id")
+            if not sample or not group or not sample.strip() or not group.strip() or None in row:
+                raise ValueError("Each group mapping must contain a sample_id and group_id.")
+            if sample in groups:
+                raise ValueError(f"Duplicate group mapping: {sample}.")
+            groups[sample] = group.strip()
+    if set(groups) != {record["sample_id"] for record in records}:
+        raise ValueError("Group mapping must cover exactly all inventoried sample IDs.")
+    for record in records:
+        record["group_id"] = groups[record["sample_id"]]
+    validate_records(records)
+
+
+def prepare_dataset(config_path: str | Path, *, dataset_root: str | Path | None = None, manifest_path: str | Path | None = None, dataset_name: str = "RLVS", source: str = "mohamedmustafa/real-life-violence-situations-dataset", groups_path: str | Path | None = None) -> Path:
     """Build a stratified grouped manifest. / Cria manifesto estratificado por grupos."""
     config = load_research_config(config_path)
     root = resolve_project_path(dataset_root or config["data"]["root"])
@@ -60,11 +82,14 @@ def prepare_dataset(config_path: str | Path, *, dataset_root: str | Path | None 
     if target.exists():
         raise FileExistsError(f"Manifest already exists: {target}")
     records = inventory_videos(root)
+    if groups_path is not None:
+        groups_path = resolve_project_path(groups_path)
+        _apply_groups(records, groups_path)
     groups = {}
     for record in records:
         group, label = record["group_id"], record["label"]
         if group in groups and groups[group] != label:
-            raise ValueError("Identical videos have conflicting class labels.")
+            raise ValueError("A group contains different class labels; stratified group splitting requires a reviewed alternative protocol.")
         groups[group] = label
     fractions = tuple(config["split"][name] for name in ("train", "validation", "test"))
     assignments = {}
@@ -85,7 +110,7 @@ def prepare_dataset(config_path: str | Path, *, dataset_root: str | Path | None 
     if download_file.is_file():
         download = json.loads(download_file.read_text(encoding="utf-8"))
         download_metadata = {key: download.get(key) for key in ("dataset", "version", "archive_sha256")}
-    save_manifest(target, records, dataset_name=dataset_name, source=source, license_name="Verify source dataset license and original authors", assignments=assignments, split_metadata={"algorithm": "stratified_by_label_group_sha256", "seed": config["split"]["seed"], "proportions": list(fractions), "download": download_metadata, "independence_limit": "Exact hashes only; source scene and near-duplicates remain unverified."})
+    save_manifest(target, records, dataset_name=dataset_name, source=source, license_name="Verify source dataset license and original authors", assignments=assignments, split_metadata={"algorithm": "stratified_by_label_group", "seed": config["split"]["seed"], "proportions": list(fractions), "download": download_metadata, "group_mapping_sha256": _hash_file(groups_path) if groups_path else None, "independence_limit": "Exact hashes checked; source-scene and near-duplicate groups require review."})
     return target
 
 
@@ -109,23 +134,40 @@ def video_path(root: Path, record: dict, *, verify_hash: bool = False) -> Path:
 
 
 def decode_video(path: Path, *, frames: int, width: int, height: int) -> np.ndarray:
-    """Uniformly sample decoded video frames. / Amostra quadros uniformemente do vídeo decodificado."""
+    """Sample in two passes with bounded memory. / Amostra em duas passagens com memória limitada."""
     import cv2
-    capture = cv2.VideoCapture(str(path))
-    if not capture.isOpened():
-        capture.release()
-        raise ValueError(f"Cannot open video: {path}")
-    images = []
+    if any(type(value) is not int or value <= 0 for value in (frames, width, height)):
+        raise ValueError("frames, width and height must be positive integers.")
+
+    def open_capture():
+        capture = cv2.VideoCapture(str(path))
+        if not capture.isOpened():
+            capture.release()
+            raise ValueError(f"Cannot open video: {path}")
+        return capture
+
+    count = 0
+    capture = open_capture()
     try:
-        while True:
-            ok, image = capture.read()
-            if not ok:
-                break
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            images.append(cv2.resize(image, (width, height), interpolation=cv2.INTER_AREA))
+        while capture.read()[0]:
+            count += 1
     finally:
         capture.release()
-    if not images:
+    if not count:
         raise ValueError(f"Video contains no decodable frames: {path}")
-    indices = np.linspace(0, len(images) - 1, frames).astype(int)
-    return np.stack([images[index] for index in indices]).astype(np.float32) / 255.0
+    indices = np.linspace(0, count - 1, frames).astype(int)
+    images = []
+    capture = open_capture()
+    try:
+        for index in range(count):
+            ok, image = capture.read()
+            if not ok:
+                raise ValueError(f"Video decoding changed between passes: {path}")
+            if len(images) < frames and index == indices[len(images)]:
+                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                image = cv2.resize(image, (width, height), interpolation=cv2.INTER_AREA)
+                while len(images) < frames and index == indices[len(images)]:
+                    images.append(image)
+    finally:
+        capture.release()
+    return np.stack(images).astype(np.float32) / 255.0
