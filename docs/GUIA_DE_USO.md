@@ -64,48 +64,37 @@ uv run --group data python scripts/download_dataset.py --version 1 --output data
 
 Uma falha de autenticação, rede ou extração encerra o comando sem publicar a pasta final. Após o download, siga o [guia de execução no servidor](plano-de-implementacao/EXECUCAO_NO_SERVIDOR.md) para inventariar os vídeos, treinar e avaliar a reconstrução proposta.
 
-## 3. Fluxo de um experimento
+## 3. Executar o fluxo de pesquisa
 
-Cada experimento deve ser compreensível no notebook e executável pelo pipeline:
+O fluxo usa o RLVS e uma reconstrucao proposta do modelo. Siga o [guia de execucao no servidor](plano-de-implementacao/EXECUCAO_NO_SERVIDOR.md) para validar GPU, preparar os dados, treinar e avaliar.
 
-1. Crie ou atualize um notebook em `notebooks/`, com objetivo, hipótese, dados usados e resultados esperados.
-2. Salve os parâmetros padrão em um arquivo próprio em `configs/`. Registre seed, split por vídeo/cena, dimensões de entrada e parâmetros do modelo conforme o protocolo. O notebook poderá declarar apenas substituições experimentais explícitas, registradas junto da configuração efetiva.
-3. Coloque pré-processamento, treino, avaliação, métricas e apresentação no pacote Python em `src/bilstm_pipeline/`. Faça os comandos de `scripts/` chamarem a mesma API.
-4. No notebook, use a API de alto nível do projeto para executar ou carregar uma execução e apresentar parâmetros efetivos, estado, tabelas e gráficos. Evite importar bibliotecas científicas diretamente ou configurar ambiente, gráficos e caminhos locais nas células.
-5. Grave cada execução numa pasta identificada em `output/`, incluindo configuração efetiva, log, métricas e figuras. Guarde checkpoints ali ou num armazenamento de artefatos apropriado.
-6. Documente a origem e licença dos dados, a unidade do split e a versão do código usada. Nunca misture vídeos/cenas entre treino, validação e teste se isso puder causar vazamento.
-
-Para experimentar a infraestrutura com dados sintéticos, rode na raiz:
+Na raiz, prepare o manifesto:
 
 ```powershell
-uv run python scripts/experiment.py run --config configs/synthetic_demo.toml --seed 42 --points 12
+uv run --group training python scripts/research.py prepare --config configs/rlvs_baseline.toml
 ```
 
-O comando devolve o ID da execução. Consulte-a sem executar novamente, substituindo o exemplo pelo ID informado:
+Depois, no servidor de treinamento:
 
 ```powershell
-uv run python scripts/experiment.py show --id ID_DA_EXECUCAO
+uv run --group training python scripts/research.py train --config configs/rlvs_baseline.toml
+uv run --group training python scripts/research.py evaluate --run-id ID_DO_TREINO --robustness
 ```
 
-`seed` e `points` são substituições opcionais dos valores do TOML. A configuração completa e efetiva fica em `output/<id>/effective_config.toml`; o manifesto identifica os dados como sintéticos. IDs já existentes não são sobrescritos. O exemplo também gera manifesto de dados, métricas, previsões, intervalos, perturbações e figuras sintéticas. O fluxo separado para vídeos reais está no [guia de execução no servidor](plano-de-implementacao/EXECUCAO_NO_SERVIDOR.md).
+As etapas tambem estao nos notebooks `01_prepare_dataset.ipynb`, `02_train_baseline.ipynb` e `03_evaluate_test.ipynb`. Os comandos mostram o ID do treino e o caminho da avaliacao em `output/`. O conjunto de teste fica reservado ate a avaliacao; nao use seus resultados para escolher parametros.
 
-Os nomes do script, da configuração e das funções do notebook foram alterados para inglês; comandos e imports antigos em português devem ser atualizados conforme os exemplos acima. As execuções anteriormente salvas em `output/` continuam disponíveis para consulta pelo novo comando `show` e pela API `load_run`.
+Para dividir por cena ou origem, prepare um CSV completo `sample_id,group_id` e passe `--groups caminho/grupos.csv` ao comando `prepare`. Use o mesmo ID para videos relacionados. Sem esse mapeamento, o padrao agrupa apenas hashes identicos. Consulte os limites no guia do servidor.
 
-Para reavaliar o CSV gerado pela demonstração, substitua `ID_DA_EXECUCAO` pelo ID recebido:
+A avaliacao externa e opcional e depende de uma base distinta, licenciada e com rotulos compativeis. Prepare configuracao e manifesto proprios; use `04_evaluate_external.ipynb` ou o comando documentado no guia do servidor.
 
-```powershell
-uv run python scripts/evaluate.py --input output/ID_DA_EXECUCAO/evaluation/predictions.csv --output output/ID_DA_EXECUCAO/reevaluation --source synthetic --unit sample --threshold 0.5
-uv run python scripts/split_dataset.py --input output/ID_DA_EXECUCAO/dataset_manifest.json --output output/ID_DA_EXECUCAO/new_split.json --seed 42
-```
-
-Esses scripts também aceitam arquivos próprios no mesmo formato; informe corretamente origem, unidade e limiar. Uma divisão por grupos não estratificada deve ser revisada antes do uso científico. As saídas precisam ser caminhos novos e seus diretórios pais devem existir.
+Os notebooks sao interfaces finas: identificam a configuracao, chamam a API do projeto e apresentam artefatos. Parametros reproduziveis ficam em `configs/`; processamento, metricas e graficos ficam no pacote Python.
 
 ## 4. Onde cada coisa fica
 
 | Preciso guardar… | Use… | Exemplos |
 | --- | --- | --- |
-| Uma análise que apresenta parâmetros e gráficos | `notebooks/` | `01_baseline_metrics.ipynb`, `02_robustness.ipynb` |
-| Lógica compartilhada de processamento e apresentação | `src/bilstm_pipeline/` | pacote instalado pelo uv; demonstração sintética disponível |
+| Uma análise que apresenta parâmetros e gráficos | `notebooks/` | `01_prepare_dataset.ipynb`, `03_evaluate_test.ipynb` |
+| Logica compartilhada de processamento e apresentacao | `src/bilstm_pipeline/` | pacote instalado pelo uv; pipeline de pesquisa compartilhado |
 | Uma entrada de terminal que chama a API | `scripts/` | preparação, treino, avaliação, robustez |
 | Parâmetros de uma execução | `configs/` | `baseline.toml`, `robustness-brightness.toml` |
 | Dataset original | `data/raw/` | vídeos e rótulos recebidos, sem alterações |

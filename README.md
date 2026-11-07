@@ -14,13 +14,7 @@ uv run --group notebooks python -m ipykernel install --user --name bilstm-experi
 uv run --group notebooks jupyter lab
 ```
 
-No Jupyter, selecione o kernel **Python (BILSTM Experimentos)**. Os notebooks `00` a `03` usam dados sintéticos; os notebooks `04` a `07` preparam e executam o fluxo de pesquisa no servidor. Também é possível executar a demonstração sintética pelo terminal:
-
-```powershell
-uv run python scripts/experiment.py run --config configs/synthetic_demo.toml
-```
-
-O comando informa um ID e grava os arquivos em `output/<id>/`. Veja o [tutorial de uso](docs/GUIA_DE_USO.md) para consultar uma execução anterior e conhecer as convenções do projeto.
+No Jupyter, selecione o kernel **Python (BILSTM Experimentos)**. Os notebooks `01` a `04` cobrem preparo, treino, avaliacao no teste reservado e avaliacao externa. O treino e as avaliacoes devem rodar no servidor configurado. Consulte o [guia de uso](docs/GUIA_DE_USO.md) para os comandos do fluxo real.
 
 ### Baixar o dataset
 

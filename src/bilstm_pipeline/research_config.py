@@ -5,7 +5,7 @@ from pathlib import Path
 import math
 import tomllib
 
-from .configuration import project_root
+from .paths import project_root
 
 _FIELDS = {
     "data": {"root", "manifest"},

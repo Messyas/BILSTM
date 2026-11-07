@@ -27,7 +27,7 @@ O inventário reconhece arquivos de vídeo em diretórios chamados `Violence` e 
 uv run --no-sync python scripts/research.py prepare --config configs/rlvs_baseline.toml
 ```
 
-O comando identifica vídeos, classes e hashes e grava `data/processed/rlvs-baseline.json`, sem sobrescrever um manifesto existente. Ele não altera os arquivos originais. Revise as contagens por classe e as atribuições no manifesto; o notebook `04_prepare_rlvs.ipynb` mostra o resumo. Se o dataset usar nomes diferentes de diretórios ou outra organização, a preparação falhará e a adaptação deverá ser revisada explicitamente.
+O comando identifica vídeos, classes e hashes e grava `data/processed/rlvs-baseline.json`, sem sobrescrever um manifesto existente. Ele não altera os arquivos originais. Revise as contagens por classe e as atribuições no manifesto; o notebook `01_prepare_dataset.ipynb` mostra o resumo. Se o dataset usar nomes diferentes de diretórios ou outra organização, a preparação falhará e a adaptação deverá ser revisada explicitamente.
 
 Quando houver metadados revisados, é possível informar um CSV UTF-8 com cabeçalho `sample_id,group_id`, contendo exatamente uma linha para cada vídeo. `sample_id` é o caminho relativo à raiz do dataset, com `/`; use o mesmo `group_id` para vídeos da mesma cena ou origem que não possam cruzar partições. Por exemplo:
 
@@ -49,7 +49,7 @@ A leitura faz duas passagens sequenciais pelo vídeo: conta os quadros decodific
 uv run --no-sync python scripts/research.py train --config configs/rlvs_baseline.toml
 ```
 
-O comando informa um ID como `rlvs-...`. Para o mesmo fluxo no Jupyter, use `05_train_rlvs.ipynb` **no servidor**. O treino confere os hashes do manifesto, usa apenas treino/validação e seleciona `best.pt` pela menor perda de validação. Salva configuração efetiva, manifesto dos dados, histórico, gráfico, ambiente, revisão Git disponível e estado da execução em `output/<RUN_ID>/`. O conjunto de teste não é usado para selecionar o checkpoint. Uma falha deixa o estado `failed` no manifesto, em vez de marcar uma execução parcial como concluída.
+O comando informa um ID como `rlvs-...`. Para o mesmo fluxo no Jupyter, use `02_train_baseline.ipynb` **no servidor**. O treino confere os hashes do manifesto, usa apenas treino/validação e seleciona `best.pt` pela menor perda de validação. Salva configuração efetiva, manifesto dos dados, histórico, gráfico, ambiente, revisão Git disponível e estado da execução em `output/<RUN_ID>/`. O conjunto de teste não é usado para selecionar o checkpoint. Uma falha deixa o estado `failed` no manifesto, em vez de marcar uma execução parcial como concluída.
 
 ## 5. Avaliar e medir robustez
 
@@ -59,7 +59,7 @@ Substitua `RUN_ID` pelo identificador informado no treinamento:
 uv run --no-sync python scripts/research.py evaluate --run-id RUN_ID --robustness
 ```
 
-O comando avalia uma sequência por vídeo da partição de teste e grava uma subpasta única em `output/<RUN_ID>/evaluations/`. O resultado inclui rótulos/predições, matriz, métricas por classe, FPR, intervalos por bootstrap agrupado e tempos de decodificação, pré-processamento e inferência. `--robustness` executa brilho, contraste, ruído, oclusão e compressão JPEG por quadro usando os níveis do TOML, com comparação pareada de acurácia. O notebook `06_evaluate_rlvs.ipynb` apresenta tabelas e gráficos.
+O comando avalia uma sequência por vídeo da partição de teste e grava uma subpasta única em `output/<RUN_ID>/evaluations/`. O resultado inclui rótulos/predições, matriz, métricas por classe, FPR, intervalos por bootstrap agrupado e tempos de decodificação, pré-processamento e inferência. `--robustness` executa brilho, contraste, ruído, oclusão e compressão JPEG por quadro usando os níveis do TOML, com comparação pareada de acurácia. O notebook `03_evaluate_test.ipynb` apresenta tabelas e gráficos.
 
 Para incluir a compressão temporal do vídeo, instale **FFmpeg com suporte a libx264** no servidor e acrescente `--video-compression` junto de `--robustness`. Cada vídeo será recodificado temporariamente em H.264 com o CRF de `robustness.video_crf` antes da amostragem. A versão do FFmpeg é registrada; essa opção exige tempo e espaço temporário adicionais.
 
@@ -74,7 +74,7 @@ uv run --no-sync python scripts/research.py prepare --config configs/external_da
 uv run --no-sync python scripts/research.py evaluate --run-id RUN_ID --dataset-root PATH_TO_EXTERNAL_DATA --external-manifest PATH_TO_EXTERNAL_MANIFEST
 ```
 
-O primeiro comando exige que o arquivo de configuração externo já tenha sido criado; os nomes em maiúsculas devem ser substituídos. A avaliação externa usa todos os registros desse manifesto, sem treinar nem ajustar o limiar. Ela recusa hashes idênticos aos da base original e fontes declaradas iguais. Isso não detecta reedições ou garante que uma base realmente seja independente ou nunca tenha sido usada no pré-treinamento: tais verificações são responsabilidade do protocolo. O notebook `07_external_evaluation.ipynb` usa a configuração externa já preparada.
+O primeiro comando exige que o arquivo de configuração externo já tenha sido criado; os nomes em maiúsculas devem ser substituídos. A avaliação externa usa todos os registros desse manifesto, sem treinar nem ajustar o limiar. Ela recusa hashes idênticos aos da base original e fontes declaradas iguais. Isso não detecta reedições ou garante que uma base realmente seja independente ou nunca tenha sido usada no pré-treinamento: tais verificações são responsabilidade do protocolo. O notebook `04_evaluate_external.ipynb` usa a configuração externa já preparada.
 
 ## 7. Verificação e limites
 

@@ -19,22 +19,6 @@ STYLE: dict[RcKeyType, Any] = {
 }
 
 
-def plot_demo(values, output_dir: Path) -> None:
-    """Export synthetic data. / Exporta dados sintéticos."""
-    output_dir.mkdir(parents=True, exist_ok=True)
-    with mpl.rc_context(STYLE):
-        figure, axes = plt.subplots(figsize=(17 / 2.54, 9 / 2.54), layout="constrained")
-        try:
-            axes.plot(range(1, len(values) + 1), values, marker="o", color="#0173b2")
-            axes.set(title="Synthetic demonstration", xlabel="Observation", ylabel="Illustrative value (a.u.)")
-            axes.spines["top"].set_visible(False)
-            axes.spines["right"].set_visible(False)
-            figure.savefig(output_dir / "demo.pdf")
-            figure.savefig(output_dir / "demo.png", dpi=300)
-        finally:
-            plt.close(figure)
-
-
 def plot_confusion_matrix(metrics: dict, output_dir: str | Path, *, class_names=("Non-violence", "Violence"), title="Confusion matrix (counts)") -> None:
     """Plot true rows and predicted columns. / Desenha linhas verdadeiras e colunas previstas."""
     matrix = np.asarray(metrics["confusion_matrix"])

@@ -10,7 +10,7 @@ import subprocess
 import tempfile
 import zipfile
 
-from .configuration import project_root
+from .paths import project_root
 
 DATASET_REF = "mohamedmustafa/real-life-violence-situations-dataset"
 DEFAULT_VERSION = 1

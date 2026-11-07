@@ -1,5 +1,5 @@
-# Configurações de experimentos
+# Configuracoes de experimentos
 
-Guarde aqui uma configuração versionada por experimento ou protocolo, usando TOML. Registre os parâmetros necessários para repetir a execução (incluindo seed, split por vídeo/cena, entrada do modelo e hiperparâmetros). Parâmetros declarados no notebook são substituições explícitas validadas pela API; a configuração efetiva completa fica junto dos resultados. Não guarde caminhos locais, credenciais, dados, resultados, configuração de bibliotecas ou estilo de gráficos neste diretório.
+Guarde aqui os arquivos TOML versionados com parametros cientificos reproduziveis, separados por protocolo ou experimento. O notebook pode apresentar substituicoes experimentais explicitas; a configuracao efetiva completa acompanha a execucao.
 
-`synthetic_demo.toml` configura somente o exemplo de infraestrutura, sem dados ou parâmetros do modelo real. Os parâmetros científicos e seu esquema serão definidos quando o código e o dataset originais forem recebidos.
+Nao coloque caminhos exclusivos de uma maquina, credenciais, dados, resultados, configuracao de bibliotecas ou estilo de graficos neste diretorio. `rlvs_baseline.toml` define os parametros propostos para treino e avaliacao do RLVS; eles ainda precisam ser comparados ao protocolo original.
