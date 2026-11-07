@@ -52,3 +52,24 @@ def occlusion(frames, *, top: int, left: int, height: int, width: int, fill: flo
         raise ValueError("Occlusion must fit the frame and fill must be within [0, 1].")
     values[:, top:top + height, left:left + width, :] = fill
     return _restore(values, dtype)
+
+
+def jpeg_compression(frames, *, quality: int):
+    """Compress individual frames as JPEG. / Comprime quadros individuais em JPEG."""
+    import cv2
+    values, dtype = _prepare(frames)
+    if type(quality) is not int or not 1 <= quality <= 100:
+        raise ValueError("JPEG quality must be an integer between 1 and 100.")
+    decoded = []
+    for frame in values:
+        image = np.rint(frame * 255).astype(np.uint8)
+        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR) if image.shape[-1] == 3 else image[:, :, 0]
+        ok, encoded = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, quality])
+        if not ok:
+            raise ValueError("Could not encode a frame as JPEG.")
+        restored = cv2.imdecode(encoded, cv2.IMREAD_COLOR if frame.shape[-1] == 3 else cv2.IMREAD_GRAYSCALE)
+        if restored is None:
+            raise ValueError("Could not decode a JPEG frame.")
+        restored = cv2.cvtColor(restored, cv2.COLOR_BGR2RGB) if frame.shape[-1] == 3 else restored[:, :, None]
+        decoded.append(restored.astype(float) / 255)
+    return _restore(np.stack(decoded), dtype)

@@ -1,0 +1,40 @@
+# Proposed reconstruction; not the original checkpoint. / Reconstrução proposta; não é o checkpoint original.
+[data]
+root = "data/raw/rlvs-v1"
+manifest = "data/processed/rlvs-baseline.json"
+
+[split]
+train = 0.70
+validation = 0.15
+test = 0.15
+seed = 42
+
+[video]
+frames = 15
+width = 100
+height = 100
+
+[model]
+hidden_size = 128
+dropout = 0.3
+pretrained = true
+
+[training]
+epochs = 10
+batch_size = 8
+learning_rate = 0.0001
+seed = 42
+device = "cuda"
+num_workers = 0
+
+[evaluation]
+threshold = 0.5
+bootstrap_resamples = 1000
+
+[robustness]
+brightness_delta = -0.1
+contrast_factor = 0.8
+noise_sigma = 0.05
+occlusion_fraction = 0.1
+jpeg_quality = 50
+video_crf = 28

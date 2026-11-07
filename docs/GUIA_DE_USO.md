@@ -62,7 +62,7 @@ O comando não sobrescreve um destino existente. Para usar outra versão publica
 uv run --group data python scripts/download_dataset.py --version 1 --output data/raw/rlvs-copy
 ```
 
-Uma falha de autenticação, rede ou extração encerra o comando sem publicar a pasta final. No notebook, o conteúdo do dataset ainda não é carregado automaticamente; a integração ao modelo faz parte do backlog.
+Uma falha de autenticação, rede ou extração encerra o comando sem publicar a pasta final. Após o download, siga o [guia de execução no servidor](plano-de-implementacao/EXECUCAO_NO_SERVIDOR.md) para inventariar os vídeos, treinar e avaliar a reconstrução proposta.
 
 ## 3. Fluxo de um experimento
 
@@ -87,7 +87,7 @@ O comando devolve o ID da execução. Consulte-a sem executar novamente, substit
 uv run python scripts/experiment.py show --id ID_DA_EXECUCAO
 ```
 
-`seed` e `points` são substituições opcionais dos valores do TOML. A configuração completa e efetiva fica em `output/<id>/effective_config.toml`; o manifesto identifica os dados como sintéticos. IDs já existentes não são sobrescritos. O exemplo também gera manifesto de dados, métricas, previsões, intervalos, perturbações e figuras sintéticas. Treino e avaliação de vídeos reais ainda não foram implementados.
+`seed` e `points` são substituições opcionais dos valores do TOML. A configuração completa e efetiva fica em `output/<id>/effective_config.toml`; o manifesto identifica os dados como sintéticos. IDs já existentes não são sobrescritos. O exemplo também gera manifesto de dados, métricas, previsões, intervalos, perturbações e figuras sintéticas. O fluxo separado para vídeos reais está no [guia de execução no servidor](plano-de-implementacao/EXECUCAO_NO_SERVIDOR.md).
 
 Os nomes do script, da configuração e das funções do notebook foram alterados para inglês; comandos e imports antigos em português devem ser atualizados conforme os exemplos acima. As execuções anteriormente salvas em `output/` continuam disponíveis para consulta pelo novo comando `show` e pela API `load_run`.
 
@@ -127,6 +127,6 @@ Dados e resultados em `data/` e `output/` são ignorados pelo Git. Versione as c
 
 ## 6. Escopo e dependências pendentes
 
-O plano atual prioriza MobileNetV2 + BiLSTM com atenção, métricas expandidas, robustez e validação externa. A base RLVS foi informada pelo pesquisador e pode ser baixada; a versão original, o código, os pesos, os logs e o framework ainda precisam ser confirmados. O repositório ainda não declara comandos de treino nem dependências específicas de PyTorch ou TensorFlow.
+O plano atual prioriza MobileNetV2 + BiLSTM com atenção, métricas expandidas, robustez e validação externa. A base RLVS foi informada pelo pesquisador e pode ser baixada. O fluxo PyTorch disponível é uma reconstrução proposta; a versão original, o código, os pesos, os logs e o framework anterior ainda precisam ser confirmados.
 
 A [arquitetura](plano-de-implementacao/ARQUITETURA.md) detalha a API e os padrões de figuras. O [guia de componentes](plano-de-implementacao/COMPONENTES.md) descreve as funções reutilizáveis e seus limites; as etapas científicas seguem no backlog.

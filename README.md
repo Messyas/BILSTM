@@ -2,7 +2,7 @@
 
 Este repositório organiza os experimentos computacionais de um capítulo sobre **prontidão da infraestrutura de dados e governança territorial**. O caso empírico é a detecção de conflitos humanos em vídeo com uma CNN + BiLSTM; o foco técnico atual é aprofundar a avaliação do modelo MobileNetV2 + BiLSTM, com atenção, e produzir resultados reproduzíveis que apoiem a discussão do capítulo.
 
-Os notebooks são a interface de experimentação: apresentam objetivo, parâmetros experimentais, execução e gráficos. O pacote Python reutilizável é chamado pelos notebooks e por scripts de linha de comando. O dataset RLVS foi identificado pelo pesquisador; o código original, os pesos e os artefatos de execução ainda precisam ser recebidos, portanto os experimentos científicos não estão prontos para rodar.
+Os notebooks são a interface de experimentação: apresentam objetivo, parâmetros experimentais, execução e gráficos. O pacote Python reutilizável é chamado pelos notebooks e por scripts de linha de comando. O dataset RLVS foi identificado pelo pesquisador. Há um fluxo de treino e avaliação para uma **reconstrução proposta**; o código e os pesos originais ainda precisam ser recebidos para verificar a correspondência com o trabalho anterior.
 
 ## Começar
 
@@ -14,7 +14,7 @@ uv run --group notebooks python -m ipykernel install --user --name bilstm-experi
 uv run --group notebooks jupyter lab
 ```
 
-No Jupyter, selecione o kernel **Python (BILSTM Experimentos)**. Os notebooks em `notebooks/` incluem uma visão geral e análises separadas de avaliação, robustez e divisão por grupos. Eles usam dados sintéticos e não executam o modelo real. Também é possível executar a demonstração pelo terminal:
+No Jupyter, selecione o kernel **Python (BILSTM Experimentos)**. Os notebooks `00` a `03` usam dados sintéticos; os notebooks `04` a `07` preparam e executam o fluxo de pesquisa no servidor. Também é possível executar a demonstração sintética pelo terminal:
 
 ```powershell
 uv run python scripts/experiment.py run --config configs/synthetic_demo.toml
@@ -31,6 +31,10 @@ uv run --group data python scripts/download_dataset.py
 ```
 
 O comando baixa a versão 1 em `data/raw/rlvs-v1/` e registra a origem e o SHA-256 do arquivo baixado. Os vídeos ficam fora do Git. A versão e as partições usadas no trabalho anterior ainda precisam ser confirmadas.
+
+### Executar no servidor
+
+O [guia de execução no servidor](docs/plano-de-implementacao/EXECUCAO_NO_SERVIDOR.md) detalha preparação do RLVS, configuração, treino, avaliação, robustez e validação externa. O modelo PyTorch proposto combina MobileNetV2, BiLSTM e atenção; sua arquitetura, parâmetros e resultados não devem ser apresentados como reprodução confirmada do modelo original. Confira a GPU e o PyTorch do servidor antes de executar.
 
 ## Mapa do projeto
 
@@ -55,4 +59,4 @@ A origem do dataset foi informada pelo pesquisador; versão utilizada originalme
 
 ## Ambiente
 
-O `pyproject.toml` descreve as dependências comuns de análise e notebook; `uv.lock` fixa as versões resolvidas para reproduzir esse ambiente. O framework de deep learning será adicionado quando o código e os pesos originais forem recebidos e a compatibilidade com o servidor/GPU for conhecida.
+O `pyproject.toml` descreve as dependências de análise e os grupos `notebooks`, `data` e `training`; `uv.lock` registra as versões resolvidas. O grupo `training` usa PyTorch, TorchVision e OpenCV. A compatibilidade da instalação de PyTorch com a GPU deve ser verificada no servidor.

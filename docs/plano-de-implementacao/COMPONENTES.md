@@ -1,6 +1,6 @@
 # Componentes disponíveis sem dataset
 
-Os módulos abaixo estão implementados e podem ser usados independentemente do formato final dos vídeos. O notebook `notebooks/00_infrastructure_demo.ipynb` e a CLI `scripts/experiment.py` executam um exemplo completo **sintético**; as métricas desse exemplo não são resultados da pesquisa. O treino, o modelo original, a leitura de vídeos e o protocolo científico ainda precisam ser integrados quando os materiais estiverem disponíveis.
+Os módulos abaixo podem ser usados independentemente do formato final dos vídeos. O notebook `notebooks/00_infrastructure_demo.ipynb` e a CLI `scripts/experiment.py` executam um exemplo **sintético**; suas métricas não são resultados da pesquisa. Há também um fluxo proposto de leitura de vídeos, treino e avaliação descrito no [guia do servidor](EXECUCAO_NO_SERVIDOR.md); ele ainda não foi confrontado com o modelo e protocolo originais.
 
 O código, os nomes de arquivos e o texto dos notebooks usam inglês; comentários e docstrings são escritos em inglês e português. Os exemplos abaixo são para quem desenvolve o pipeline: notebooks de pesquisa continuam usando apenas a API de alto nível.
 

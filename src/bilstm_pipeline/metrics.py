@@ -46,11 +46,13 @@ def binary_metrics(y_true: ArrayLike, y_pred: ArrayLike) -> dict:
 
 
 def _metric_value(metrics: dict, name: str) -> float | None:
-    supported = {"accuracy", "specificity", "false_positive_rate", "f1_macro", "f1_weighted", "positive_precision", "positive_recall", "positive_f1"}
+    supported = {"accuracy", "specificity", "false_positive_rate", "f1_macro", "f1_weighted", "positive_precision", "positive_recall", "positive_f1", "negative_precision", "negative_recall", "negative_f1"}
     if name not in supported:
         raise ValueError(f"Unsupported metric: {name}. Choose from {sorted(supported)}.")
     if name.startswith("positive_"):
         return metrics["classes"]["1"][name.removeprefix("positive_")]
+    if name.startswith("negative_"):
+        return metrics["classes"]["0"][name.removeprefix("negative_")]
     return metrics[name]
 
 

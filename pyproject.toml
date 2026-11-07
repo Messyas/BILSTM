@@ -21,6 +21,11 @@ notebooks = [
     "ipykernel>=6.29",
     "jupyterlab>=4.2",
 ]
+training = [
+    "opencv-python-headless>=4.10,<5",
+    "torch>=2.5,<2.8",
+    "torchvision>=0.20,<0.23",
+]
 
 [build-system]
 requires = ["hatchling"]

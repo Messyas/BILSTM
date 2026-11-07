@@ -2,7 +2,7 @@
 
 ## Objetivo e estado
 
-Organizar experimentos reproduzíveis sobre o modelo de detecção de conflitos com notebooks que expliquem a pergunta, apresentem os parâmetros experimentais e exibam os resultados. O processamento, a configuração do ambiente e a produção padronizada de figuras pertencem ao pipeline Python. O pacote e a interface já oferecem uma **demonstração sintética**; as etapas científicas continuam planejadas.
+Organizar experimentos reproduzíveis sobre o modelo de detecção de conflitos com notebooks que expliquem a pergunta, apresentem os parâmetros experimentais e exibam os resultados. O pacote oferece demonstração sintética e um fluxo para treinar e avaliar uma **reconstrução proposta**. A equivalência com o modelo anterior e a execução no servidor ainda precisam ser verificadas.
 
 ## Responsabilidades e dependências
 
@@ -20,10 +20,10 @@ scripts/ ────── chama a mesma API ──► src/bilstm_pipeline/
 
 | Local | Responsabilidade | Estado |
 | --- | --- | --- |
-| `notebooks/` | Expor objetivo, identificador da configuração, eventuais parâmetros do experimento, execução e apresentação de tabelas/gráficos. | Notebooks sintéticos de visão geral, avaliação, robustez e divisão disponíveis; notebooks com modelo real são futuros. |
-| `configs/` | Arquivos TOML versionados com parâmetros científicos e regras de execução reproduzíveis. | Esquema sintético disponível; esquema científico pendente. |
-| `scripts/` | Entradas finas de terminal que interpretam argumentos, invocam a API e retornam código de saída. Sem duplicar o pipeline. | `experiment.py` executa/consulta demonstração; `evaluate.py` avalia CSV; `split_dataset.py` divide manifestos. |
-| `src/bilstm_pipeline/` | Pacote de validação, orquestração, divisão, métricas, robustez, artefatos e apresentação. | Instalável via uv; componentes disponíveis e integrados em demonstração sintética. Treino e modelo real são futuros. |
+| `notebooks/` | Expor objetivo, identificador da configuração, eventuais parâmetros do experimento, execução e apresentação de tabelas/gráficos. | Notebooks sintéticos e de preparação, treino e avaliação no servidor. |
+| `configs/` | Arquivos TOML versionados com parâmetros científicos e regras de execução reproduzíveis. | Esquema sintético e `rlvs_baseline.toml` para a reconstrução proposta. |
+| `scripts/` | Entradas finas de terminal que interpretam argumentos, invocam a API e retornam código de saída. Sem duplicar o pipeline. | Inclui `research.py` para preparar, treinar e avaliar a reconstrução. |
+| `src/bilstm_pipeline/` | Pacote de validação, orquestração, divisão, métricas, robustez, artefatos e apresentação. | Instalável via uv; fluxo proposto em PyTorch precisa de piloto no servidor. |
 | `data/raw/`, `data/processed/` | Originais preservados e dados derivados, respectivamente. | A origem RLVS foi informada e o download está disponível; versão usada originalmente e divisões ainda precisam ser confirmadas. |
 | `output/<id>/` | Configuração efetiva, registro do ambiente, logs, métricas, predições, figuras e, se aplicável, pesos. | Diretório raiz existe; os artefatos são futuros e ignorados pelo Git. |
 | `docs/` | Protocolo, decisões, fontes e andamento. | Existe. |
@@ -100,8 +100,8 @@ uv run python scripts/experiment.py run --config configs/synthetic_demo.toml
 uv run python scripts/experiment.py show --id ID_DA_EXECUCAO
 ```
 
-O comando e o notebook chamam a mesma API. A definição de comandos científicos permanece no backlog; nenhum comando de treino está pronto.
+O comando e o notebook chamam a mesma API. `scripts/research.py` oferece as etapas `prepare`, `train` e `evaluate`; o [guia de execução no servidor](EXECUCAO_NO_SERVIDOR.md) explica os comandos e limitações.
 
-Além da demonstração, os scripts de avaliação de CSV e divisão de manifesto executam tarefas reais e genéricas em arquivos fornecidos pelo usuário. Os notebooks atuais apresentam cenários sintéticos específicos; nenhum deles realiza inferência com o modelo original.
+Além da demonstração, os scripts de avaliação de CSV e divisão de manifesto executam tarefas genéricas em arquivos fornecidos pelo usuário. Os notebooks `04` a `07` chamam o fluxo de pesquisa proposto; nenhum deles utiliza o checkpoint original, ainda indisponível.
 
 Consulte [COMPONENTES.md](COMPONENTES.md) para os contratos de métricas, bootstrap, manifestos, divisão, modelo e perturbações. Código, scripts e notebooks usam inglês; comentários e docstrings devem conter inglês e português. Os formatos antigos de execução continuam acessíveis em leitura.

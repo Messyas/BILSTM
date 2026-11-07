@@ -109,3 +109,22 @@ def plot_robustness_comparison(perturbations: dict, output_dir: str | Path, *, t
             figure.savefig(output_dir / "robustness.png", dpi=300)
         finally:
             plt.close(figure)
+
+
+def plot_training_history(history: list[dict], output_dir: str | Path) -> None:
+    """Plot train and validation loss. / Desenha perda de treino e validação."""
+    if not history:
+        raise ValueError("Training history cannot be empty.")
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    with mpl.rc_context(STYLE):
+        figure, axes = plt.subplots(figsize=(17 / 2.54, 9 / 2.54), layout="constrained")
+        try:
+            axes.plot([item["epoch"] for item in history], [item["train_loss"] for item in history], marker="o", label="Training")
+            axes.plot([item["epoch"] for item in history], [item["validation_loss"] for item in history], marker="s", label="Validation")
+            axes.set(xlabel="Epoch", ylabel="Cross-entropy loss", title="Training history")
+            axes.legend()
+            figure.savefig(output_dir / "training_history.pdf")
+            figure.savefig(output_dir / "training_history.png", dpi=300)
+        finally:
+            plt.close(figure)
