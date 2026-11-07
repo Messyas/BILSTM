@@ -1,11 +1,17 @@
 """Plotting and export style. / Estilo e exportação de gráficos."""
 
+from __future__ import annotations
+
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 
-STYLE = {
+if TYPE_CHECKING:
+    from matplotlib.typing import RcKeyType
+
+STYLE: dict[RcKeyType, Any] = {
     "font.family": "serif", "font.size": 10, "axes.labelsize": 11,
     "axes.titlesize": 12, "xtick.labelsize": 9, "ytick.labelsize": 9,
     "legend.fontsize": 9, "axes.grid": True, "grid.alpha": 0.3,
@@ -46,7 +52,8 @@ def plot_confusion_matrix(metrics: dict, output_dir: str | Path, *, class_names=
             axes.set(xlabel="Predicted class", ylabel="True class", title=title)
             for row in range(2):
                 for col in range(2):
-                    color = "white" if image.norm(matrix[row, col]) < 0.5 else "black"
+                    normalized = float(np.asarray(image.norm(matrix[row, col]), dtype=float).item())
+                    color = "white" if normalized < 0.5 else "black"
                     axes.text(col, row, f"{matrix[row, col]:g}", ha="center", va="center", color=color)
             figure.savefig(output_dir / "confusion_matrix.pdf")
             figure.savefig(output_dir / "confusion_matrix.png", dpi=300)
