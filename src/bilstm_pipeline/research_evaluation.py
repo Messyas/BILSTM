@@ -23,10 +23,12 @@ from .research_training import select_device, set_seed, video_tensor
 from .results import save_evaluation
 from .robustness import brightness, contrast, gaussian_noise, jpeg_compression, occlusion
 
+_RUN_MANIFEST_FILENAME = "manifest.json"
+
 
 def _load_run(run_id: str, device: str | None):
     target = run_path(run_id)
-    manifest = json.loads((target / "manifest.json").read_text(encoding="utf-8"))
+    manifest = json.loads((target / _RUN_MANIFEST_FILENAME).read_text(encoding="utf-8"))
     if manifest.get("status") != "completed" or manifest.get("type") != "proposed_reconstruction":
         raise ValueError("A completed proposed reconstruction run is required.")
     with (target / "effective_config.toml").open("rb") as stream:
@@ -186,7 +188,7 @@ def evaluate_model(run_id: str, *, dataset_root: str | Path | None = None, exter
     print(f"Evaluation ID: {evaluation_id}", flush=True)
     status = {"id": evaluation_id, "run_id": run_id, "status": "running", "type": evaluation_type, "source": manifest["source"], "unit": "one video; one uniformly sampled sequence", "threshold": config["evaluation"]["threshold"], "robustness": robustness, "video_compression": video_compression, "ffmpeg_version": ffmpeg_version, "checkpoint_sha256": _hash_file(run_dir / "best.pt"), "started_utc": datetime.now(timezone.utc).isoformat()}
     try:
-        write_json(target / "manifest.json", status)
+        write_json(target / _RUN_MANIFEST_FILENAME, status)
         write_json(target / "dataset_manifest.json", manifest)
         data = _collect_scores(records, root, config, selected, model, robustness, ffmpeg)
         predictions = (np.asarray(data["scores"]) >= config["evaluation"]["threshold"]).astype(int)
@@ -198,9 +200,9 @@ def evaluate_model(run_id: str, *, dataset_root: str | Path | None = None, exter
         if robustness:
             _save_robustness(target, config, manifest["source"], status["unit"], data, predictions)
         status.update(status="completed", finished_utc=datetime.now(timezone.utc).isoformat(), device=str(selected))
-        write_json(target / "manifest.json", status)
+        write_json(target / _RUN_MANIFEST_FILENAME, status)
     except Exception as error:
         status.update(status="failed", error_type=type(error).__name__, finished_utc=datetime.now(timezone.utc).isoformat())
-        write_json(target / "manifest.json", status)
+        write_json(target / _RUN_MANIFEST_FILENAME, status)
         raise
     return target

@@ -74,6 +74,44 @@ def _apply_groups(records: list[dict], groups_path: str | Path) -> None:
     validate_records(records)
 
 
+def _validate_group_labels(records: list[dict]) -> None:
+    """Ensure each split group has one label. / Garante um rotulo por grupo."""
+    labels_by_group = {}
+    for record in records:
+        group_id, label = record["group_id"], record["label"]
+        if group_id in labels_by_group and labels_by_group[group_id] != label:
+            raise ValueError("A group contains different class labels; stratified group splitting requires a reviewed alternative protocol.")
+        labels_by_group[group_id] = label
+
+
+def _create_assignments(records: list[dict], fractions: tuple, seed: int) -> dict:
+    """Create stratified group assignments. / Cria divisoes estratificadas por grupo."""
+    assignments = {}
+    for label in (0, 1):
+        class_records = [record for record in records if record["label"] == label]
+        group_count = len({record["group_id"] for record in class_records})
+        if group_count < 3:
+            raise ValueError(f"At least three independent video groups are required for class {label}.")
+        assignments.update(group_split(class_records, proportions=fractions, seed=seed + label))
+    return assignments
+
+
+def _validate_assignment_summary(records: list[dict], assignments: dict) -> None:
+    """Require both classes in every split. / Exige as duas classes em cada divisao."""
+    for name, item in validate_split(records, assignments).items():
+        if not item["labels"]["0"] or not item["labels"]["1"]:
+            raise ValueError(f"Split {name} lacks one of the classes.")
+
+
+def _read_download_metadata(root: Path) -> dict | None:
+    """Read available download provenance. / Le a origem disponivel do download."""
+    metadata_file = root / "download_metadata.json"
+    if not metadata_file.is_file():
+        return None
+    payload = json.loads(metadata_file.read_text(encoding="utf-8"))
+    return {key: payload.get(key) for key in ("dataset", "version", "archive_sha256")}
+
+
 def prepare_dataset(config_path: str | Path, *, dataset_root: str | Path | None = None, manifest_path: str | Path | None = None, dataset_name: str = "RLVS", source: str = "mohamedmustafa/real-life-violence-situations-dataset", groups_path: str | Path | None = None) -> Path:
     """Build a stratified grouped manifest. / Cria manifesto estratificado por grupos."""
     config = load_research_config(config_path)
@@ -85,32 +123,22 @@ def prepare_dataset(config_path: str | Path, *, dataset_root: str | Path | None 
     if groups_path is not None:
         groups_path = resolve_project_path(groups_path)
         _apply_groups(records, groups_path)
-    groups = {}
-    for record in records:
-        group, label = record["group_id"], record["label"]
-        if group in groups and groups[group] != label:
-            raise ValueError("A group contains different class labels; stratified group splitting requires a reviewed alternative protocol.")
-        groups[group] = label
+    _validate_group_labels(records)
     fractions = tuple(config["split"][name] for name in ("train", "validation", "test"))
-    assignments = {}
-    for label in (0, 1):
-        class_records = [record for record in records if record["label"] == label]
-        if len({record["group_id"] for record in class_records}) < 3:
-            raise ValueError(f"At least three independent video groups are required for class {label}.")
-        assignments.update(group_split(class_records, proportions=fractions, seed=config["split"]["seed"] + label))
-    summary = validate_split(records, assignments)
-    for name, item in summary.items():
-        if not item["labels"]["0"] or not item["labels"]["1"]:
-            raise ValueError(f"Split {name} lacks one of the classes.")
+    assignments = _create_assignments(records, fractions, config["split"]["seed"])
+    _validate_assignment_summary(records, assignments)
     target.parent.mkdir(parents=True, exist_ok=True)
     for record in records:
         record["source"] = source
-    download_metadata = None
-    download_file = root / "download_metadata.json"
-    if download_file.is_file():
-        download = json.loads(download_file.read_text(encoding="utf-8"))
-        download_metadata = {key: download.get(key) for key in ("dataset", "version", "archive_sha256")}
-    save_manifest(target, records, dataset_name=dataset_name, source=source, license_name="Verify source dataset license and original authors", assignments=assignments, split_metadata={"algorithm": "stratified_by_label_group", "seed": config["split"]["seed"], "proportions": list(fractions), "download": download_metadata, "group_mapping_sha256": _hash_file(groups_path) if groups_path else None, "independence_limit": "Exact hashes checked; source-scene and near-duplicate groups require review."})
+    split_metadata = {
+        "algorithm": "stratified_by_label_group",
+        "seed": config["split"]["seed"],
+        "proportions": list(fractions),
+        "download": _read_download_metadata(root),
+        "group_mapping_sha256": _hash_file(groups_path) if groups_path else None,
+        "independence_limit": "Exact hashes checked; source-scene and near-duplicate groups require review.",
+    }
+    save_manifest(target, records, dataset_name=dataset_name, source=source, license_name="Verify source dataset license and original authors", assignments=assignments, split_metadata=split_metadata)
     return target
 
 
@@ -133,31 +161,33 @@ def video_path(root: Path, record: dict, *, verify_hash: bool = False) -> Path:
     return path
 
 
-def decode_video(path: Path, *, frames: int, width: int, height: int) -> np.ndarray:
-    """Sample in two passes with bounded memory. / Amostra em duas passagens com memória limitada."""
+def _open_video_capture(path: Path):
+    """Open and validate a video capture. / Abre e valida um video."""
     import cv2
-    if any(type(value) is not int or value <= 0 for value in (frames, width, height)):
-        raise ValueError("frames, width and height must be positive integers.")
+    capture = cv2.VideoCapture(str(path))
+    if not capture.isOpened():
+        capture.release()
+        raise ValueError(f"Cannot open video: {path}")
+    return capture
 
-    def open_capture():
-        capture = cv2.VideoCapture(str(path))
-        if not capture.isOpened():
-            capture.release()
-            raise ValueError(f"Cannot open video: {path}")
-        return capture
 
+def _count_video_frames(path: Path) -> int:
+    """Count decodable frames with bounded memory. / Conta quadros com memoria limitada."""
+    capture = _open_video_capture(path)
     count = 0
-    capture = open_capture()
     try:
         while capture.read()[0]:
             count += 1
     finally:
         capture.release()
-    if not count:
-        raise ValueError(f"Video contains no decodable frames: {path}")
-    indices = np.linspace(0, count - 1, frames).astype(int)
+    return count
+
+
+def _sample_video_frames(path: Path, indices: np.ndarray, count: int, *, frames: int, width: int, height: int) -> np.ndarray:
+    """Decode selected frames in a second pass. / Decodifica quadros selecionados em uma segunda passagem."""
+    import cv2
+    capture = _open_video_capture(path)
     images = []
-    capture = open_capture()
     try:
         for index in range(count):
             ok, image = capture.read()
@@ -171,3 +201,14 @@ def decode_video(path: Path, *, frames: int, width: int, height: int) -> np.ndar
     finally:
         capture.release()
     return np.stack(images).astype(np.float32) / 255.0
+
+
+def decode_video(path: Path, *, frames: int, width: int, height: int) -> np.ndarray:
+    """Sample in two passes with bounded memory. / Amostra em duas passagens com memoria limitada."""
+    if any(type(value) is not int or value <= 0 for value in (frames, width, height)):
+        raise ValueError("frames, width and height must be positive integers.")
+    count = _count_video_frames(path)
+    if not count:
+        raise ValueError(f"Video contains no decodable frames: {path}")
+    indices = np.linspace(0, count - 1, frames).astype(int)
+    return _sample_video_frames(path, indices, count, frames=frames, width=width, height=height)

@@ -26,6 +26,7 @@ from .research_model import ConflictModel
 
 _MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
 _STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+_RUN_MANIFEST_FILENAME = "manifest.json"
 
 
 def select_device(name: str) -> torch.device:
@@ -98,8 +99,80 @@ def _run_epoch(model, loader, device, loss_fn, optimizer=None) -> float:
     return total_loss / total_samples
 
 
+def _training_records(root: Path, manifest_file: Path) -> tuple[dict, list[dict], list[dict]]:
+    """Load verified training records. / Carrega registros de treino verificados."""
+    manifest = load_manifest(manifest_file)
+    records_by_split = {
+        name: [record for record in manifest["records"] if manifest["assignments"][record["sample_id"]] == name]
+        for name in ("train", "validation")
+    }
+    for record in manifest["records"]:
+        video_path(root, record, verify_hash=True)
+    for name, records in records_by_split.items():
+        if {record["label"] for record in records} != {0, 1}:
+            raise ValueError(f"Split {name} must contain both classes.")
+    return manifest, records_by_split["train"], records_by_split["validation"]
+
+
+def _write_initial_artifacts(target: Path, status: dict, config: dict, manifest_file: Path, device: torch.device) -> None:
+    """Persist run inputs and environment. / Salva entradas e ambiente da execucao."""
+    write_json(target / _RUN_MANIFEST_FILENAME, status)
+    with (target / "effective_config.toml").open("wb") as stream:
+        tomli_w.dump(config, stream)
+    shutil.copyfile(manifest_file, target / "dataset_manifest.json")
+    write_json(target / "environment.json", _device_metadata(device))
+
+
+def _create_loaders(root: Path, config: dict, train_records: list[dict], val_records: list[dict]):
+    """Build deterministic data loaders. / Cria carregadores de dados deterministas."""
+    generator = torch.Generator().manual_seed(config["training"]["seed"])
+    options = {"batch_size": config["training"]["batch_size"], "num_workers": config["training"]["num_workers"]}
+    train_loader = DataLoader(VideoDataset(root, train_records, config["video"]), shuffle=True, generator=generator, **options)
+    val_loader = DataLoader(VideoDataset(root, val_records, config["video"]), shuffle=False, **options)
+    return train_loader, val_loader
+
+
+def _train_epochs(model, train_loader, val_loader, device: torch.device, config: dict, target: Path) -> tuple[list[dict], float]:
+    """Train and checkpoint the best validation epoch. / Treina e salva a melhor epoca de validacao."""
+    optimizer = torch.optim.Adam(
+        model.parameters(),
+        lr=config["training"]["learning_rate"],
+        weight_decay=config["training"]["weight_decay"],
+    )
+    loss_fn = nn.CrossEntropyLoss()
+    history, best_loss = [], float("inf")
+    for epoch in range(1, config["training"]["epochs"] + 1):
+        train_loss = _run_epoch(model, train_loader, device, loss_fn, optimizer)
+        val_loss = _run_epoch(model, val_loader, device, loss_fn)
+        if not math.isfinite(train_loss) or not math.isfinite(val_loss):
+            raise ValueError("Training or validation loss is not finite.")
+        history.append({"epoch": epoch, "train_loss": train_loss, "validation_loss": val_loss})
+        write_json(target / "history.json", {"epochs": history})
+        line = f"Epoch {epoch}: train_loss={train_loss:.6f}, validation_loss={val_loss:.6f}"
+        print(line, flush=True)
+        with (target / "training.log").open("a", encoding="utf-8") as stream:
+            stream.write(line + "\n")
+        if val_loss < best_loss:
+            best_loss = val_loss
+            torch.save({"model_state": model.state_dict(), "epoch": epoch, "validation_loss": val_loss}, target / "best.pt")
+    return history, best_loss
+
+
+def _finish_run(target: Path, status: dict, *, best_loss: float | None = None, error: Exception | None = None) -> None:
+    """Record run completion or failure. / Registra conclusao ou falha da execucao."""
+    status.update(status="failed" if error else "completed", finished_utc=datetime.now(timezone.utc).isoformat())
+    if error is not None:
+        status["error_type"] = type(error).__name__
+    if best_loss is not None:
+        status["best_validation_loss"] = best_loss
+    write_json(target / _RUN_MANIFEST_FILENAME, status)
+    if error is not None:
+        with (target / "training.log").open("a", encoding="utf-8") as stream:
+            stream.write(f"Failed: {type(error).__name__}: {error}\n")
+
+
 def train_model(config_path: str | Path, *, dataset_root: str | Path | None = None, manifest_path: str | Path | None = None, seed: int | None = None, device: str | None = None) -> str:
-    """Train using training and validation only. / Treina usando apenas treino e validação."""
+    """Train using training and validation only. / Treina usando apenas treino e validacao."""
     config = load_research_config(config_path, seed=seed)
     if device is not None:
         if device not in ("cuda", "cpu", "auto"):
@@ -107,16 +180,8 @@ def train_model(config_path: str | Path, *, dataset_root: str | Path | None = No
         config["training"]["device"] = device
     root = resolve_project_path(dataset_root or config["data"]["root"])
     manifest_file = resolve_project_path(manifest_path or config["data"]["manifest"])
-    config["data"]["root"] = str(root)
-    config["data"]["manifest"] = str(manifest_file)
-    manifest = load_manifest(manifest_file)
-    train_records = [record for record in manifest["records"] if manifest["assignments"][record["sample_id"]] == "train"]
-    val_records = [record for record in manifest["records"] if manifest["assignments"][record["sample_id"]] == "validation"]
-    for record in manifest["records"]:
-        video_path(root, record, verify_hash=True)
-    for name, records in (("train", train_records), ("validation", val_records)):
-        if {record["label"] for record in records} != {0, 1}:
-            raise ValueError(f"Split {name} must contain both classes.")
+    config["data"].update(root=str(root), manifest=str(manifest_file))
+    manifest, train_records, val_records = _training_records(root, manifest_file)
     selected = select_device(config["training"]["device"])
     set_seed(config["training"]["seed"])
     run_id = "rlvs-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid4().hex[:8]
@@ -125,39 +190,13 @@ def train_model(config_path: str | Path, *, dataset_root: str | Path | None = No
     print(f"Run ID: {run_id}", flush=True)
     status: dict[str, Any] = {"id": run_id, "status": "running", "type": "proposed_reconstruction", "dataset": manifest["dataset_name"], "dataset_manifest_sha256": _hash_file(manifest_file), "started_utc": datetime.now(timezone.utc).isoformat()}
     try:
-        write_json(target / "manifest.json", status)
-        with (target / "effective_config.toml").open("wb") as stream:
-            tomli_w.dump(config, stream)
-        shutil.copyfile(manifest_file, target / "dataset_manifest.json")
-        write_json(target / "environment.json", _device_metadata(selected))
+        _write_initial_artifacts(target, status, config, manifest_file, selected)
         model = ConflictModel(**config["model"]).to(selected)
-        generator = torch.Generator().manual_seed(config["training"]["seed"])
-        options = {"batch_size": config["training"]["batch_size"], "num_workers": config["training"]["num_workers"]}
-        train_loader = DataLoader(VideoDataset(root, train_records, config["video"]), shuffle=True, generator=generator, **options)
-        val_loader = DataLoader(VideoDataset(root, val_records, config["video"]), shuffle=False, **options)
-        optimizer = torch.optim.Adam(model.parameters(), lr=config["training"]["learning_rate"])
-        history, best_loss = [], float("inf")
-        for epoch in range(1, config["training"]["epochs"] + 1):
-            train_loss = _run_epoch(model, train_loader, selected, nn.CrossEntropyLoss(), optimizer)
-            val_loss = _run_epoch(model, val_loader, selected, nn.CrossEntropyLoss())
-            if not math.isfinite(train_loss) or not math.isfinite(val_loss):
-                raise ValueError("Training or validation loss is not finite.")
-            history.append({"epoch": epoch, "train_loss": train_loss, "validation_loss": val_loss})
-            write_json(target / "history.json", {"epochs": history})
-            line = f"Epoch {epoch}: train_loss={train_loss:.6f}, validation_loss={val_loss:.6f}"
-            print(line, flush=True)
-            with (target / "training.log").open("a", encoding="utf-8") as stream:
-                stream.write(line + "\n")
-            if val_loss < best_loss:
-                best_loss = val_loss
-                torch.save({"model_state": model.state_dict(), "epoch": epoch, "validation_loss": val_loss}, target / "best.pt")
+        train_loader, val_loader = _create_loaders(root, config, train_records, val_records)
+        history, best_loss = _train_epochs(model, train_loader, val_loader, selected, config, target)
         plot_training_history(history, target / "figures")
-        status.update(status="completed", finished_utc=datetime.now(timezone.utc).isoformat(), best_validation_loss=best_loss)
-        write_json(target / "manifest.json", status)
+        _finish_run(target, status, best_loss=best_loss)
     except Exception as error:
-        status.update(status="failed", error_type=type(error).__name__, finished_utc=datetime.now(timezone.utc).isoformat())
-        write_json(target / "manifest.json", status)
-        with (target / "training.log").open("a", encoding="utf-8") as stream:
-            stream.write(f"Failed: {type(error).__name__}: {error}\n")
+        _finish_run(target, status, error=error)
         raise
     return run_id
