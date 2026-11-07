@@ -2,7 +2,7 @@
 
 Este repositório organiza os experimentos computacionais de um capítulo sobre **prontidão da infraestrutura de dados e governança territorial**. O caso empírico é a detecção de conflitos humanos em vídeo com uma CNN + BiLSTM; o foco técnico atual é aprofundar a avaliação do modelo MobileNetV2 + BiLSTM, com atenção, e produzir resultados reproduzíveis que apoiem a discussão do capítulo.
 
-Os notebooks são a interface de experimentação: apresentam objetivo, parâmetros experimentais, execução e gráficos. A arquitetura planejada concentra o processamento e a apresentação em um pacote Python reutilizável, chamado pelos notebooks e por scripts de linha de comando. O dataset, o código original e os artefatos de execução ainda precisam ser recebidos; portanto, os experimentos não estão prontos para rodar.
+Os notebooks são a interface de experimentação: apresentam objetivo, parâmetros experimentais, execução e gráficos. O pacote Python reutilizável é chamado pelos notebooks e por scripts de linha de comando. O dataset, o código original e os artefatos de execução ainda precisam ser recebidos; portanto, os experimentos científicos não estão prontos para rodar.
 
 ## Começar
 
@@ -14,7 +14,13 @@ uv run --group notebooks python -m ipykernel install --user --name bilstm-experi
 uv run --group notebooks jupyter lab
 ```
 
-No Jupyter, selecione o kernel **Python (BILSTM Experimentos)** e abra um notebook em `notebooks/`. Para Windows PowerShell, veja o [tutorial de uso](docs/GUIA_DE_USO.md); ele também descreve o fluxo de trabalho, a convenção para novos experimentos e onde cada tipo de arquivo deve ficar.
+No Jupyter, selecione o kernel **Python (BILSTM Experimentos)** e abra `notebooks/00_demonstracao_infraestrutura.ipynb`. Ele gera apenas dados sintéticos para demonstrar a interface, sem realizar treino ou avaliação científica. Também é possível executar a demonstração pelo terminal:
+
+```powershell
+uv run python scripts/experimento.py executar --config configs/demonstracao_sintetica.toml
+```
+
+O comando informa um ID e grava os arquivos em `output/<id>/`. Veja o [tutorial de uso](docs/GUIA_DE_USO.md) para consultar uma execução anterior e conhecer as convenções do projeto.
 
 ## Mapa do projeto
 
@@ -22,7 +28,7 @@ No Jupyter, selecione o kernel **Python (BILSTM Experimentos)** e abra um notebo
 | --- | --- |
 | `notebooks/` | Interface dos experimentos: pergunta, parâmetros experimentais, chamadas ao pipeline, tabelas e gráficos. |
 | `scripts/` | Entradas finas de linha de comando que chamam a mesma API dos notebooks. |
-| `src/bilstm_pipeline/` | Pacote Python planejado para processamento, orquestração e apresentação; ainda não criado. |
+| `src/bilstm_pipeline/` | Pacote Python de orquestração, parâmetros e apresentação; atualmente oferece apenas a demonstração sintética. |
 | `configs/` | Parâmetros versionados por experimento ou protocolo, usados para gerar a configuração efetiva de cada execução. |
 | `data/raw/` | Dados originais, mantidos fora do Git. Não editar os arquivos de origem. |
 | `data/processed/` | Dados derivados e divisões de treino, validação e teste, também fora do Git. |

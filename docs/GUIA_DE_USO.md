@@ -40,25 +40,31 @@ Cada experimento deve ser compreensível no notebook e executável pelo pipeline
 
 1. Crie ou atualize um notebook em `notebooks/`, com objetivo, hipótese, dados usados e resultados esperados.
 2. Salve os parâmetros padrão em um arquivo próprio em `configs/`. Registre seed, split por vídeo/cena, dimensões de entrada e parâmetros do modelo conforme o protocolo. O notebook poderá declarar apenas substituições experimentais explícitas, registradas junto da configuração efetiva.
-3. Coloque pré-processamento, treino, avaliação, métricas e apresentação no pacote Python planejado em `src/bilstm_pipeline/`. Faça os comandos de `scripts/` chamarem a mesma API.
+3. Coloque pré-processamento, treino, avaliação, métricas e apresentação no pacote Python em `src/bilstm_pipeline/`. Faça os comandos de `scripts/` chamarem a mesma API.
 4. No notebook, use a API de alto nível do projeto para executar ou carregar uma execução e apresentar parâmetros efetivos, estado, tabelas e gráficos. Evite importar bibliotecas científicas diretamente ou configurar ambiente, gráficos e caminhos locais nas células.
 5. Grave cada execução numa pasta identificada em `output/`, incluindo configuração efetiva, log, métricas e figuras. Guarde checkpoints ali ou num armazenamento de artefatos apropriado.
 6. Documente a origem e licença dos dados, a unidade do split e a versão do código usada. Nunca misture vídeos/cenas entre treino, validação e teste se isso puder causar vazamento.
 
-Forma de chamada que os scripts deverão seguir quando o pipeline for implementado:
+Para experimentar a infraestrutura com dados sintéticos, rode na raiz:
 
 ```powershell
-uv run python scripts/<comando>.py --config configs/<experimento>.toml --output output/<id-da-execucao>
+uv run python scripts/experimento.py executar --config configs/demonstracao_sintetica.toml --seed 42 --pontos 12
 ```
 
-Os comandos de pipeline ainda não existem neste repositório. Substitua os marcadores pelos nomes reais quando os scripts forem criados; não copie este exemplo como se já fosse executável.
+O comando devolve o ID da execução. Consulte-a sem executar novamente, substituindo o exemplo pelo ID informado:
+
+```powershell
+uv run python scripts/experimento.py mostrar --id ID_DA_EXECUCAO
+```
+
+`seed` e `pontos` são substituições opcionais dos valores do TOML. A configuração completa e efetiva fica em `output/<id>/config_efetiva.toml`; o manifesto identifica os dados como sintéticos. IDs já existentes não são sobrescritos. Treino, avaliação de vídeos e demais etapas científicas ainda não foram implementados.
 
 ## 3. Onde cada coisa fica
 
 | Preciso guardar… | Use… | Exemplos |
 | --- | --- | --- |
 | Uma análise que apresenta parâmetros e gráficos | `notebooks/` | `01_metricas_base.ipynb`, `02_robustez.ipynb` |
-| Lógica compartilhada de processamento e apresentação | `src/bilstm_pipeline/` | pacote planejado, ainda não implementado |
+| Lógica compartilhada de processamento e apresentação | `src/bilstm_pipeline/` | pacote instalado pelo uv; demonstração sintética disponível |
 | Uma entrada de terminal que chama a API | `scripts/` | preparação, treino, avaliação, robustez |
 | Parâmetros de uma execução | `configs/` | `baseline.toml`, `robustez-brilho.toml` |
 | Dataset original | `data/raw/` | vídeos e rótulos recebidos, sem alterações |
@@ -73,7 +79,7 @@ Dados e resultados em `data/` e `output/` são ignorados pelo Git. Versione as c
 - Procure primeiro na tabela acima; não crie outra pasta para uma categoria já coberta.
 - Use nomes curtos, descritivos e numerados para notebooks, por exemplo `01_baseline.ipynb` e `02_validacao_externa.ipynb`.
 - Um notebook corresponde a uma pergunta ou etapa científica. Não crie um notebook por tentativa de parâmetro; registre variações na configuração e na saída da execução.
-- Mantenha implementação e estilo de gráficos no pacote planejado; use `scripts/` como entradas de terminal e `notebooks/` como interface de alto nível.
+- Mantenha implementação e estilo de gráficos no pacote; use `scripts/` como entradas de terminal e `notebooks/` como interface de alto nível.
 - Consulte o [backlog](plano-de-implementacao/BACKLOG.md) antes de iniciar trabalho. Atualize tarefas e evidências ao concluir, e siga [AGENTS.md](../AGENTS.md) para commits locais pequenos e rastreáveis.
 - Crie uma nova subpasta somente quando houver mais de um tipo de conteúdo recorrente que não caiba nos locais definidos; antes, atualize este guia com a justificativa.
 - Não mova nem renomeie as pastas já existentes sem atualizar este guia e o README.
@@ -82,4 +88,4 @@ Dados e resultados em `data/` e `output/` são ignorados pelo Git. Versione as c
 
 O plano atual prioriza MobileNetV2 + BiLSTM com atenção, métricas expandidas, robustez e validação externa. O dataset, o código original, os pesos, os logs e a definição de framework ainda precisam ser recebidos/confirmados. Por isso, este repositório configura o ambiente de notebook e análise, mas ainda não declara comandos de treino nem dependências específicas de PyTorch ou TensorFlow.
 
-A [arquitetura proposta](plano-de-implementacao/ARQUITETURA.md) detalha a API pretendida, as exceções para parâmetros experimentais nas células e os padrões de figuras. Esses componentes ainda serão implementados conforme o backlog.
+A [arquitetura](plano-de-implementacao/ARQUITETURA.md) detalha a API, as exceções para parâmetros experimentais nas células e os padrões de figuras. A demonstração funciona; as etapas científicas seguem no backlog.

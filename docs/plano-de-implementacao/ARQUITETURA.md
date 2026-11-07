@@ -2,7 +2,7 @@
 
 ## Objetivo e estado
 
-Organizar experimentos reproduzíveis sobre o modelo de detecção de conflitos com notebooks que expliquem a pergunta, apresentem os parâmetros experimentais e exibam os resultados. O processamento, a configuração do ambiente e a produção padronizada de figuras pertencem ao pipeline Python. O desenho a seguir é **planejado**: os módulos e as interfaces exemplificadas ainda não existem.
+Organizar experimentos reproduzíveis sobre o modelo de detecção de conflitos com notebooks que expliquem a pergunta, apresentem os parâmetros experimentais e exibam os resultados. O processamento, a configuração do ambiente e a produção padronizada de figuras pertencem ao pipeline Python. O pacote e a interface já oferecem uma **demonstração sintética**; as etapas científicas continuam planejadas.
 
 ## Responsabilidades e dependências
 
@@ -20,19 +20,19 @@ scripts/ ────── chama a mesma API ──► src/bilstm_pipeline/
 
 | Local | Responsabilidade | Estado |
 | --- | --- | --- |
-| `notebooks/` | Expor objetivo, identificador da configuração, eventuais parâmetros do experimento, execução e apresentação de tabelas/gráficos. | Existe; notebooks de pesquisa são futuros. |
-| `configs/` | Arquivos TOML versionados com parâmetros científicos e regras de execução reproduzíveis. | Existe; o esquema está pendente. |
-| `scripts/` | Entradas finas de terminal que interpretam argumentos, invocam a API e retornam código de saída. Sem duplicar o pipeline. | Existe; comandos são futuros. |
-| `src/bilstm_pipeline/` | Pacote planejado: validação de parâmetros, orquestração, dados/splits, modelos, treino, avaliação, robustez, validação externa, artefatos e apresentação. | **Ainda não existe.** Criar módulos por responsabilidade e somente quando necessários. |
+| `notebooks/` | Expor objetivo, identificador da configuração, eventuais parâmetros do experimento, execução e apresentação de tabelas/gráficos. | Demonstração sintética disponível; notebooks de pesquisa são futuros. |
+| `configs/` | Arquivos TOML versionados com parâmetros científicos e regras de execução reproduzíveis. | Esquema sintético disponível; esquema científico pendente. |
+| `scripts/` | Entradas finas de terminal que interpretam argumentos, invocam a API e retornam código de saída. Sem duplicar o pipeline. | `experimento.py` executa ou consulta a demonstração. |
+| `src/bilstm_pipeline/` | Pacote de validação, orquestração, artefatos e apresentação; dados/splits, modelos, treino e avaliação são planejados. | Instalável via uv; funciona para demonstração sintética. |
 | `data/raw/`, `data/processed/` | Originais preservados e dados derivados, respectivamente. | Existem; conteúdo científico ainda depende de recebimento. |
 | `output/<id>/` | Configuração efetiva, registro do ambiente, logs, métricas, predições, figuras e, se aplicável, pesos. | Diretório raiz existe; os artefatos são futuros e ignorados pelo Git. |
 | `docs/` | Protocolo, decisões, fontes e andamento. | Existe. |
 
-O pacote `src/` requer alterar `pyproject.toml`, que hoje define `package = false`: adotar um backend de build compatível com `uv`, instalar o projeto em modo editável via `uv sync` e documentar o import. Não depender de `sys.path` alterado em células nem de diretório de trabalho por acaso. Caminhos de configuração relativos à raiz do projeto, como no exemplo abaixo, devem ser resolvidos por uma função central tanto a partir da raiz quanto de `notebooks/`; caminhos absolutos são aceitos explicitamente e entradas ausentes produzem erro claro. Os dados locais podem ficar fora do repositório; caminhos são resolvidos por argumentos ou variáveis de ambiente documentadas, nunca com credenciais em TOML versionado.
+O pacote `src/` usa Hatchling e é instalado em modo editável via `uv sync`. Não depende de `sys.path` alterado nas células. Caminhos relativos à raiz do projeto, como no exemplo abaixo, são resolvidos tanto a partir da raiz quanto de `notebooks/`; caminhos absolutos são aceitos e entradas ausentes produzem erro. A forma de informar dados locais externos será definida no pipeline científico, sem credenciais em TOML versionado.
 
 ### Contrato da API e das entradas
 
-O pacote terá uma API pequena para notebooks e scripts, com as mesmas regras. Nomes a definir na implementação; responsabilidades previstas:
+O pacote oferece uma API pequena para notebooks e scripts, com as mesmas regras. Responsabilidades:
 
 1. **Preparar**: ler e validar a configuração de experimento; aplicar substituições explícitas autorizadas; gerar identificador único e registrar o estado inicial.
 2. **Executar**: orquestrar etapas solicitadas, falhar claramente quando faltar entrada e registrar sucesso ou falha; nunca substituir silenciosamente um resultado anterior.
@@ -40,11 +40,11 @@ O pacote terá uma API pequena para notebooks e scripts, com as mesmas regras. N
 
 Parâmetros de experimento incluem, conforme protocolo confirmado, seed, definição de split, checkpoint, tamanho de lote, taxa de aprendizado, limiar, janelas e níveis de perturbação. TOML versionado é a fonte padrão. Um notebook **pode declarar e passar somente substituições experimentais explícitas**, como `seed` ou intensidade de ruído; configurações de bibliotecas, ambiente, estilo ou montagem do pipeline não pertencem às células. A API valida os campos, rejeita valores desconhecidos e registra a configuração efetiva completa após substituições. A API deve deixar visível o que foi efetivamente executado.
 
-Identificadores de execução devem ser únicos (por exemplo, timestamp em UTC com sufixo gerado), sem sobrescrever execuções anteriores; tentativa de reuso falha com mensagem clara, salvo quando for uma operação explícita de leitura. Versões, revisão Git disponível, hardware, framework, seeds, fontes dos dados e logs devem ser registrados sem segredos ou dados pessoais desnecessários. As referências a checkpoints e dados externos devem ser rastreáveis sem exigir que entrem no Git.
+Na demonstração, identificadores incluem timestamp em UTC e sufixo aleatório; o reuso é recusado. São registrados versões Python e de bibliotecas, sistema, arquitetura da máquina, revisão Git disponível, seed, origem sintética e log. Na implementação científica, ampliar o registro para hardware de processamento, framework, fontes reais e checkpoints, sem segredos ou dados pessoais desnecessários.
 
 ### Modelo de notebook
 
-Cada notebook terá uma pergunta científica e, idealmente, uma única importação pública do projeto. Os nomes abaixo são **ilustrativos**, ainda não implementados:
+Cada notebook terá uma pergunta científica e, idealmente, uma única importação pública do projeto. O exemplo abaixo é executável para demonstrar a infraestrutura com dados sintéticos:
 
 ```python
 from bilstm_pipeline import notebook as experimento
@@ -52,12 +52,12 @@ from bilstm_pipeline import notebook as experimento
 
 ```python
 # Identificação e parâmetros científicos explícitos, quando necessários.
-configuracao = "configs/baseline.toml"
+configuracao = "configs/demonstracao_sintetica.toml"
 parametros = {"seed": 42}
 ```
 
 ```python
-# API planejada: solicita execução e devolve um identificador rastreável.
+# Solicita a demonstração sintética e devolve um identificador rastreável.
 execucao = experimento.executar(configuracao, parametros=parametros)
 experimento.mostrar_parametros(execucao)
 ```
@@ -66,18 +66,18 @@ experimento.mostrar_parametros(execucao)
 experimento.mostrar_resultados(execucao)
 ```
 
-Essas células documentam a interface pretendida; não são comandos executáveis hoje. Se o usuário quiser apenas inspecionar um resultado anterior, a futura API deve oferecer operação de leitura por ID que não inicie treino novamente. O notebook pode incluir texto explicativo e conclusões, mas não `matplotlib`, `seaborn`, `pandas`, framework de treino, variáveis de ambiente, `sys.path`, `rcParams`, carregadores de dados ou funções de métricas. Qualquer nova biblioteca necessária à apresentação deve ser encapsulada na API do pacote. Evitar salvar nos notebooks cópias de dados sensíveis ou saídas volumosas; vincular as conclusões ao ID de execução.
+As funções `mostrar_parametros(id)` e `mostrar_resultados(id)` consultam uma execução concluída sem iniciá-la de novo. A demonstração não executa o modelo científico. O notebook pode incluir texto explicativo e conclusões, mas não `matplotlib`, `seaborn`, `pandas`, framework de treino, variáveis de ambiente, `sys.path`, `rcParams`, carregadores de dados ou funções de métricas. Qualquer nova biblioteca necessária à apresentação deve ser encapsulada na API do pacote. Evitar salvar nos notebooks cópias de dados sensíveis ou saídas volumosas; vincular as conclusões ao ID de execução.
 
 ### Configurações e saídas
 
-- `configs/`: parâmetros do experimento e protocolo reproduzível em TOML. Esquema e exemplos reais só após verificar o código e os dados originais. Não armazenar credenciais, caminhos específicos de uma máquina, ajustes de bibliotecas ou `rcParams` ali.
+- `configs/`: parâmetros do experimento e protocolo reproduzível em TOML. Há um exemplo sintético; esquema e exemplos científicos dependem de verificar o código e os dados originais. Não armazenar credenciais, caminhos específicos de uma máquina, ajustes de bibliotecas ou `rcParams` ali.
 - Configuração técnica e defaults de apresentação: código ou recursos versionados no pacote (`.mplstyle` quando conveniente). Configurações locais de ambiente ficam no ambiente do usuário e documentadas sem segredos.
-- `output/<id>/`: prever `config_efetiva.toml`, `ambiente.json`, `manifesto.json`, `metricas/`, `figuras/`, logs e eventuais predições/checkpoints. Os nomes são um contrato proposto a ser finalizado durante a implementação; versionar pequenos metadados de protocolo em `docs/` quando necessário, sem versionar dados privados. Manter o identificador, a revisão, a fonte e a unidade de análise associados a cada figura e tabela.
+- `output/<id>/`: a demonstração grava `config_efetiva.toml`, `ambiente.json`, `manifesto.json`, `execucao.log`, `dados_sinteticos.csv` e figuras PDF/PNG. Métricas, predições e checkpoints permanecem planejados. Manter o identificador, a revisão, a fonte e a unidade de análise associados a cada figura e tabela.
 - O esquema precisa contemplar execução concluída ou falha, e impedir que um artefato parcial seja apresentado como resultado concluído. Não registrar valor científico inventado como se viesse de uma execução real; usar somente dados sintéticos identificados nas verificações.
 
 ## Padrão de figuras para publicação
 
-Implementar um módulo de visualização no pacote com Matplotlib e Seaborn quando útil. Centralizar estilo e exportação, e aplicá-los num contexto (`matplotlib.rc_context` ou estilo equivalente) para evitar efeitos globais e diferenças entre notebooks. As funções devem receber dados/resultados e devolver figuras ou caminhos; os notebooks só chamam a API de apresentação.
+O módulo `graficos.py` aplica o estilo e exporta a figura da demonstração usando Matplotlib e `matplotlib.rc_context`. As visualizações científicas e suas regras específicas ainda precisam ser implementadas; Seaborn pode ser usado quando útil. Os notebooks só chamam a API de apresentação.
 
 **Padrão inicial a adaptar às normas do veículo:**
 
@@ -93,10 +93,11 @@ O estilo sugerido pelo usuário (`font.family`, tamanhos, grade discreta, `savef
 
 ## Interfaces de linha de comando
 
-Comandos desejados, sujeitos à implementação e documentados como exemplos futuros:
+Comandos disponíveis para a demonstração, executados na raiz:
 
 ```text
-uv run python scripts/<etapa>.py --config configs/<experimento>.toml --output output/<id>
+uv run python scripts/experimento.py executar --config configs/demonstracao_sintetica.toml
+uv run python scripts/experimento.py mostrar --id ID_DA_EXECUCAO
 ```
 
-O comando e o notebook devem produzir o mesmo comportamento para os mesmos parâmetros, em especial esquema de validação, saída e regras de erro. A API será a fonte única da lógica. Nenhum comando de treino é oferecido como pronto enquanto o backlog correspondente não estiver concluído.
+O comando e o notebook chamam a mesma API. A definição de comandos científicos permanece no backlog; nenhum comando de treino está pronto.
