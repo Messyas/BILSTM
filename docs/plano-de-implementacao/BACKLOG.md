@@ -34,6 +34,7 @@ As tarefas abaixo podem começar com dados sintéticos enquanto se aguardam os m
 - [ ] **I06 — Criar notebook de referência.** Usar uma importação de alto nível, identificação do experimento, apenas parâmetros científicos e chamadas para apresentar os resultados. **Aceite:** funciona com o pacote instalado a partir da raiz e a partir de `notebooks/`; nenhuma configuração de biblioteca, processamento científico ou imports de pilha científica no notebook; mostra ID e parâmetros efetivos; o exemplo com dados sintéticos está identificado. **Dependências:** I04–I05.
   - **Parcial (06/11/2026):** `notebooks/00_infrastructure_demo.ipynb` foi executado da raiz e de `notebooks/`, usando somente a API do projeto e dados rotulados como sintéticos. Concluir após consolidar I04–I05 para os experimentos reais.
   - **Avanço:** notebooks sintéticos separados de avaliação, robustez e divisão por grupos foram executados a partir de `notebooks/`. A integração com dados reais e o modelo continua pendente.
+  - **Manutenção:** nomes repetidos de arquivos em `notebook.py` foram substituídos por constantes; a apresentação sintética foi conferida após a alteração.
 
 ## Dados, modelo e avaliação
 

@@ -2,11 +2,14 @@
 
 from .execution import load_run, run
 
+_COMPONENT_DEMO_FILENAME = "component_demo.json"
+_EVALUATION_FILENAME = "evaluation.json"
+
 
 def _component_run(run_id: str) -> dict:
     """Load a run with component artifacts. / Carrega execução com artefatos dos componentes."""
     result = load_run(run_id)
-    if result["legacy"] or not (result["directory"] / "component_demo.json").is_file():
+    if result["legacy"] or not (result["directory"] / _COMPONENT_DEMO_FILENAME).is_file():
         raise ValueError("This run has no component demonstration artifacts; create a new synthetic run.")
     return result
 
@@ -30,9 +33,9 @@ def show_results(run_id: str) -> None:
     image = "figuras/demonstracao.png" if result["legacy"] else "figures/demo.png"
     display(pd.read_csv(directory / data))
     display(Image(filename=str(directory / image)))
-    if not result["legacy"] and (directory / "evaluation" / "evaluation.json").exists():
+    if not result["legacy"] and (directory / "evaluation" / _EVALUATION_FILENAME).exists():
         import json
-        evaluation = json.loads((directory / "evaluation" / "evaluation.json").read_text(encoding="utf-8"))
+        evaluation = json.loads((directory / "evaluation" / _EVALUATION_FILENAME).read_text(encoding="utf-8"))
         print("Synthetic classification example — not scientific results")
         display(pd.DataFrame(evaluation["metrics"]["classes"]).T)
         display(Image(filename=str(directory / "figures" / "confusion_matrix.png")))
@@ -46,8 +49,8 @@ def show_metrics(run_id: str) -> None:
     from IPython.display import Image, display
     result = _component_run(run_id)
     directory = result["directory"]
-    evaluation = json.loads((directory / "evaluation" / "evaluation.json").read_text(encoding="utf-8"))
-    components = json.loads((directory / "component_demo.json").read_text(encoding="utf-8"))
+    evaluation = json.loads((directory / "evaluation" / _EVALUATION_FILENAME).read_text(encoding="utf-8"))
+    components = json.loads((directory / _COMPONENT_DEMO_FILENAME).read_text(encoding="utf-8"))
     print("Synthetic data only — not scientific findings.")
     display(pd.DataFrame(evaluation["metrics"]["classes"]).T)
     display(pd.DataFrame([evaluation["metrics"]], columns=["total", "accuracy", "specificity", "false_positive_rate", "f1_macro", "f1_weighted"]))
@@ -63,7 +66,7 @@ def show_robustness(run_id: str) -> None:
     from IPython.display import Image, display
     result = _component_run(run_id)
     directory = result["directory"]
-    components = json.loads((directory / "component_demo.json").read_text(encoding="utf-8"))
+    components = json.loads((directory / _COMPONENT_DEMO_FILENAME).read_text(encoding="utf-8"))
     rows = []
     for name, data in components["perturbations"].items():
         interval = data["paired_accuracy_difference"]
