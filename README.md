@@ -2,7 +2,7 @@
 
 Este repositório organiza os experimentos computacionais de um capítulo sobre **prontidão da infraestrutura de dados e governança territorial**. O caso empírico é a detecção de conflitos humanos em vídeo com uma CNN + BiLSTM; o foco técnico atual é aprofundar a avaliação do modelo MobileNetV2 + BiLSTM, com atenção, e produzir resultados reproduzíveis que apoiem a discussão do capítulo.
 
-Os notebooks são a interface de experimentação: apresentam objetivo, parâmetros experimentais, execução e gráficos. O pacote Python reutilizável é chamado pelos notebooks e por scripts de linha de comando. O dataset, o código original e os artefatos de execução ainda precisam ser recebidos; portanto, os experimentos científicos não estão prontos para rodar.
+Os notebooks são a interface de experimentação: apresentam objetivo, parâmetros experimentais, execução e gráficos. O pacote Python reutilizável é chamado pelos notebooks e por scripts de linha de comando. O dataset RLVS foi identificado pelo pesquisador; o código original, os pesos e os artefatos de execução ainda precisam ser recebidos, portanto os experimentos científicos não estão prontos para rodar.
 
 ## Começar
 
@@ -21,6 +21,16 @@ uv run python scripts/experiment.py run --config configs/synthetic_demo.toml
 ```
 
 O comando informa um ID e grava os arquivos em `output/<id>/`. Veja o [tutorial de uso](docs/GUIA_DE_USO.md) para consultar uma execução anterior e conhecer as convenções do projeto.
+
+### Baixar o dataset
+
+O pesquisador identificou o [Real Life Violence Situations Dataset no Kaggle](https://www.kaggle.com/datasets/mohamedmustafa/real-life-violence-situations-dataset) como a base utilizada. Após configurar o acesso ao Kaggle conforme o [guia](docs/GUIA_DE_USO.md#2-baixar-o-dataset), rode na raiz:
+
+```powershell
+uv run --group data python scripts/download_dataset.py
+```
+
+O comando baixa a versão 1 em `data/raw/rlvs-v1/` e registra a origem e o SHA-256 do arquivo baixado. Os vídeos ficam fora do Git. A versão e as partições usadas no trabalho anterior ainda precisam ser confirmadas.
 
 ## Mapa do projeto
 
@@ -41,7 +51,7 @@ Consulte o [guia de uso](docs/GUIA_DE_USO.md) antes de criar arquivos ou pastas.
 
 O plano de revisão prioriza métricas por classe e agregadas, matriz de confusão, taxa de falso alerta, intervalos de confiança, latência e throughput; testes de robustez; e validação externa (*cross-dataset*). A documentação também registra as exigências editoriais sobre originalidade, governança territorial, metodologia, salvaguardas éticas e autoria. O capítulo deve separar resultados efetivamente medidos de propostas futuras e tratar o sistema como apoio à decisão sob supervisão humana.
 
-O dataset é um bloqueio registrado no contexto atual: origem, licença, distribuição de classes, anotação, split e artefatos precisam ser confirmados antes de definir ou executar o pipeline. A acurácia de 96,5% mencionada em documentos de contexto não é tratada aqui como resultado de teste confirmado.
+A origem do dataset foi informada pelo pesquisador; versão utilizada originalmente, licença e condições de uso, distribuição de classes, anotação, split e artefatos ainda precisam ser documentados. A acurácia de 96,5% mencionada em documentos de contexto não é tratada aqui como resultado de teste confirmado.
 
 ## Ambiente
 

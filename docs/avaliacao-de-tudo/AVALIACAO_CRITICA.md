@@ -3,6 +3,8 @@
 **Data:** 06/11/2026  
 **Objetivo:** decidir se a proposta de Gustavo é uma base adequada para os experimentos do capítulo e quais condições precisam ser resolvidas antes da execução.
 
+**Atualização em 07/11/2026:** o usuário identificou o [RLVS no Kaggle](https://www.kaggle.com/datasets/mohamedmustafa/real-life-violence-situations-dataset) como o dataset utilizado. A análise abaixo foi feita antes dessa informação; as pendências relativas à identidade da base estão parcialmente resolvidas, mas versão, amostras, divisão, licença e histórico de treinamento ainda precisam ser documentados. A versão 1 pode ser obtida pelo script descrito no [guia de uso](../GUIA_DE_USO.md#2-baixar-o-dataset).
+
 ## 1. Parecer para decisão
 
 **A direção do plano faz sentido, com ajustes antes da execução.** Reavaliar o modelo existente com separação adequada dos dados, métricas mais completas, testes de robustez e avaliação externa responde às lacunas identificadas nos documentos internos. Essas etapas podem gerar evidência nova sobre o modelo sem exigir uma nova arquitetura. Porém, o plano ainda é um roteiro de trabalho, não um protocolo experimental executável: faltam a origem dos dados, as regras de avaliação, os artefatos do modelo e decisões sobre o que será medido.
@@ -91,7 +93,7 @@ Para aglomeração, preferir uma avaliação separada com rótulos ou metadados 
 
 Selecionar uma base externa que não tenha contribuído para treino, ajuste, seleção de hiperparâmetros ou limiar, inclusive por vídeos duplicados ou reedições. Verificar as licenças, condições de acesso e rótulos. Mapear classes previamente: escolher qual evento conta como positivo e quais exemplos podem ser negativos, excluindo ou analisando à parte categorias ambíguas. Documentar regras de amostragem temporal, resolução, normalização e agregação por vídeo; manter as mesmas entradas esperadas pelo modelo. Só chamar a avaliação de **zero-shot entre bases** se não houver treinamento nem ajuste com dados ou rótulos da base alvo; qualquer adaptação deve ser relatada separadamente.
 
-- **RLVS:** candidata para uma primeira comparação binária, se não integrar o treino original e se a origem, licença, rótulos e sobreposição forem verificados. A compatibilidade não deve ser presumida pelo nome.
+- **RLVS:** identificada posteriormente pelo usuário como base do trabalho original. Uma avaliação nessa base pode servir para reprodução ou teste interno com divisão independente documentada; ela não é, por si, validação externa entre datasets para um modelo treinado nela.
 - **Hockey Fight:** candidato para estudar mudança de domínio esportivo; resultados nesse domínio não representam diretamente videomonitoramento urbano.
 - **UCF-Crime:** candidato de vigilância mais próximo de algumas condições de interesse, porém a [descrição dos autores](https://www.crcv.ucf.edu/research/real-world-anomaly-detection-in-surveillance-videos/) inclui vídeos longos e 13 tipos de anomalia, muitos não equivalentes a conflito entre pessoas. Rótulos de anomalia em nível de vídeo não podem ser transferidos indiscriminadamente a todas as janelas. Definir categorias, recortes e anotações temporais disponíveis; não rotular toda anomalia como violência ou toda janela de um vídeo positivo como positiva.
 

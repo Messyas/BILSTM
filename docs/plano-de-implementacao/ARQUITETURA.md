@@ -24,7 +24,7 @@ scripts/ ────── chama a mesma API ──► src/bilstm_pipeline/
 | `configs/` | Arquivos TOML versionados com parâmetros científicos e regras de execução reproduzíveis. | Esquema sintético disponível; esquema científico pendente. |
 | `scripts/` | Entradas finas de terminal que interpretam argumentos, invocam a API e retornam código de saída. Sem duplicar o pipeline. | `experiment.py` executa/consulta demonstração; `evaluate.py` avalia CSV; `split_dataset.py` divide manifestos. |
 | `src/bilstm_pipeline/` | Pacote de validação, orquestração, divisão, métricas, robustez, artefatos e apresentação. | Instalável via uv; componentes disponíveis e integrados em demonstração sintética. Treino e modelo real são futuros. |
-| `data/raw/`, `data/processed/` | Originais preservados e dados derivados, respectivamente. | Existem; conteúdo científico ainda depende de recebimento. |
+| `data/raw/`, `data/processed/` | Originais preservados e dados derivados, respectivamente. | A origem RLVS foi informada e o download está disponível; versão usada originalmente e divisões ainda precisam ser confirmadas. |
 | `output/<id>/` | Configuração efetiva, registro do ambiente, logs, métricas, predições, figuras e, se aplicável, pesos. | Diretório raiz existe; os artefatos são futuros e ignorados pelo Git. |
 | `docs/` | Protocolo, decisões, fontes e andamento. | Existe. |
 

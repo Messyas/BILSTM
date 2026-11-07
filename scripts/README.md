@@ -13,5 +13,6 @@ Os scripts podem ser chamados no terminal ou em automações; compartilham as fu
 | `experiment.py` | Criar ou consultar uma execução sintética. |
 | `evaluate.py` | Avaliar um CSV de predições binárias já existentes e exportar tabela, métricas e gráficos. |
 | `split_dataset.py` | Criar uma divisão por grupo a partir de um manifesto JSON, sem estratificação. |
+| `download_dataset.py` | Baixar a versão fixada do dataset RLVS para `data/raw/`, com metadados de origem. |
 
 Execute `uv run python scripts/evaluate.py --help` ou `uv run python scripts/split_dataset.py --help` para ver os parâmetros. O primeiro exige as colunas `sample_id`, `true_label` e `predicted_label`; uma coluna `score` é opcional. O segundo espera `dataset_name`, `source`, `license` e `records` no JSON, com os campos de registro descritos no guia de componentes. Ambos exigem um caminho de saída novo e recusam sobrescrita.
