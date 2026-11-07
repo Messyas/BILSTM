@@ -1,7 +1,7 @@
 [project]
 name = "bilstm-experimentos"
 version = "0.1.0"
-description = "Notebooks e ferramentas para experimentos reproduzíveis de detecção de conflitos em vídeo."
+description = "Notebooks and tools for reproducible video conflict detection experiments."
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
 dependencies = [

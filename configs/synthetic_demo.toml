@@ -1,0 +1,5 @@
+# Synthetic demonstration only. / Apenas demonstração sintética.
+[experiment]
+type = "synthetic_demo"
+seed = 42
+points = 12

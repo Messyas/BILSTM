@@ -7,6 +7,7 @@
 3. Mantenha notebooks como interface: apenas uma importação da API de alto nível, identificação do experimento, parâmetros específicos quando necessário, chamadas e apresentação de resultados. Configuração de ambiente, caminhos locais, estilo de gráficos, lógica de processamento e imports de bibliotecas do pipeline ficam fora dos notebooks.
 4. Coloque parâmetros reproduzíveis em `configs/` e implementações compartilhadas no pacote planejado `src/bilstm_pipeline/`; use `scripts/` como entradas finas para a linha de comando. Não invente dados, métricas ou resultados científicos.
 5. Crie pastas somente quando cumprirem uma responsabilidade prevista ou houver necessidade concreta documentada. Atualize os guias quando mudar contratos, comandos ou organização.
+6. Use inglês em nomes de arquivos de código e notebooks, identificadores, comandos, mensagens de código e texto dos notebooks. Escreva comentários e docstrings em inglês e português. A documentação geral em Markdown pode permanecer em português.
 
 ## Conclusão e commits
 

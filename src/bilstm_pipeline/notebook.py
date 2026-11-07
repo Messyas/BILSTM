@@ -1,21 +1,31 @@
-"""Interface compacta para os notebooks, compartilhando a API da CLI."""
+"""Notebook facade. / Interface para notebooks."""
 
-from .execucao import carregar, executar
+from .execution import load_run, run
 
 
-def mostrar_parametros(identificador: str) -> None:
+def show_parameters(run_id: str) -> None:
+    """Display effective parameters. / Exibe parâmetros efetivos."""
     from IPython.display import display
+    result = load_run(run_id)
+    print(f"Run: {run_id}")
+    display(result["config"])
 
-    execucao = carregar(identificador)
-    print(f"Execução: {identificador}")
-    display(execucao["configuracao"])
 
-
-def mostrar_resultados(identificador: str) -> None:
+def show_results(run_id: str) -> None:
+    """Display a completed demonstration. / Exibe demonstração concluída."""
     from IPython.display import Image, display
     import pandas as pd
-
-    execucao = carregar(identificador)
-    print(execucao["manifesto"]["origem"])
-    display(pd.read_csv(execucao["diretorio"] / "dados_sinteticos.csv"))
-    display(Image(filename=str(execucao["diretorio"] / "figuras" / "demonstracao.png")))
+    result = load_run(run_id)
+    print(result["manifest"].get("origem") if result["legacy"] else result["manifest"]["origin"])
+    directory = result["directory"]
+    data = "dados_sinteticos.csv" if result["legacy"] else "synthetic_data.csv"
+    image = "figuras/demonstracao.png" if result["legacy"] else "figures/demo.png"
+    display(pd.read_csv(directory / data))
+    display(Image(filename=str(directory / image)))
+    if not result["legacy"] and (directory / "evaluation" / "evaluation.json").exists():
+        import json
+        evaluation = json.loads((directory / "evaluation" / "evaluation.json").read_text(encoding="utf-8"))
+        print("Synthetic classification example — not scientific results")
+        display(pd.DataFrame(evaluation["metrics"]["classes"]).T)
+        display(Image(filename=str(directory / "figures" / "confusion_matrix.png")))
+        display(Image(filename=str(directory / "figures" / "binary_metrics.png")))

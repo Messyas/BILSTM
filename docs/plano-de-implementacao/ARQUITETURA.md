@@ -22,8 +22,8 @@ scripts/ ────── chama a mesma API ──► src/bilstm_pipeline/
 | --- | --- | --- |
 | `notebooks/` | Expor objetivo, identificador da configuração, eventuais parâmetros do experimento, execução e apresentação de tabelas/gráficos. | Demonstração sintética disponível; notebooks de pesquisa são futuros. |
 | `configs/` | Arquivos TOML versionados com parâmetros científicos e regras de execução reproduzíveis. | Esquema sintético disponível; esquema científico pendente. |
-| `scripts/` | Entradas finas de terminal que interpretam argumentos, invocam a API e retornam código de saída. Sem duplicar o pipeline. | `experimento.py` executa ou consulta a demonstração. |
-| `src/bilstm_pipeline/` | Pacote de validação, orquestração, artefatos e apresentação; dados/splits, modelos, treino e avaliação são planejados. | Instalável via uv; funciona para demonstração sintética. |
+| `scripts/` | Entradas finas de terminal que interpretam argumentos, invocam a API e retornam código de saída. Sem duplicar o pipeline. | `experiment.py` executa ou consulta a demonstração. |
+| `src/bilstm_pipeline/` | Pacote de validação, orquestração, divisão, métricas, robustez, artefatos e apresentação. | Instalável via uv; componentes disponíveis e integrados em demonstração sintética. Treino e modelo real são futuros. |
 | `data/raw/`, `data/processed/` | Originais preservados e dados derivados, respectivamente. | Existem; conteúdo científico ainda depende de recebimento. |
 | `output/<id>/` | Configuração efetiva, registro do ambiente, logs, métricas, predições, figuras e, se aplicável, pesos. | Diretório raiz existe; os artefatos são futuros e ignorados pelo Git. |
 | `docs/` | Protocolo, decisões, fontes e andamento. | Existe. |
@@ -47,37 +47,37 @@ Na demonstração, identificadores incluem timestamp em UTC e sufixo aleatório;
 Cada notebook terá uma pergunta científica e, idealmente, uma única importação pública do projeto. O exemplo abaixo é executável para demonstrar a infraestrutura com dados sintéticos:
 
 ```python
-from bilstm_pipeline import notebook as experimento
+from bilstm_pipeline import notebook as experiment
 ```
 
 ```python
-# Identificação e parâmetros científicos explícitos, quando necessários.
-configuracao = "configs/demonstracao_sintetica.toml"
-parametros = {"seed": 42}
+# Identify explicit scientific parameters. / Identifique os parâmetros científicos explícitos.
+config = "configs/synthetic_demo.toml"
+parameters = {"seed": 42}
 ```
 
 ```python
-# Solicita a demonstração sintética e devolve um identificador rastreável.
-execucao = experimento.executar(configuracao, parametros=parametros)
-experimento.mostrar_parametros(execucao)
+# Run the synthetic demonstration. / Execute a demonstração sintética.
+run_id = experiment.run(config, overrides=parameters)
+experiment.show_parameters(run_id)
 ```
 
 ```python
-experimento.mostrar_resultados(execucao)
+experiment.show_results(run_id)
 ```
 
-As funções `mostrar_parametros(id)` e `mostrar_resultados(id)` consultam uma execução concluída sem iniciá-la de novo. A demonstração não executa o modelo científico. O notebook pode incluir texto explicativo e conclusões, mas não `matplotlib`, `seaborn`, `pandas`, framework de treino, variáveis de ambiente, `sys.path`, `rcParams`, carregadores de dados ou funções de métricas. Qualquer nova biblioteca necessária à apresentação deve ser encapsulada na API do pacote. Evitar salvar nos notebooks cópias de dados sensíveis ou saídas volumosas; vincular as conclusões ao ID de execução.
+As funções `show_parameters(id)` e `show_results(id)` consultam uma execução concluída sem iniciá-la de novo. A demonstração não executa o modelo científico. O notebook pode incluir texto explicativo e conclusões, mas não `matplotlib`, `seaborn`, `pandas`, framework de treino, variáveis de ambiente, `sys.path`, `rcParams`, carregadores de dados ou funções de métricas. Qualquer nova biblioteca necessária à apresentação deve ser encapsulada na API do pacote. Evitar salvar nos notebooks cópias de dados sensíveis ou saídas volumosas; vincular as conclusões ao ID de execução.
 
 ### Configurações e saídas
 
 - `configs/`: parâmetros do experimento e protocolo reproduzível em TOML. Há um exemplo sintético; esquema e exemplos científicos dependem de verificar o código e os dados originais. Não armazenar credenciais, caminhos específicos de uma máquina, ajustes de bibliotecas ou `rcParams` ali.
 - Configuração técnica e defaults de apresentação: código ou recursos versionados no pacote (`.mplstyle` quando conveniente). Configurações locais de ambiente ficam no ambiente do usuário e documentadas sem segredos.
-- `output/<id>/`: a demonstração grava `config_efetiva.toml`, `ambiente.json`, `manifesto.json`, `execucao.log`, `dados_sinteticos.csv` e figuras PDF/PNG. Métricas, predições e checkpoints permanecem planejados. Manter o identificador, a revisão, a fonte e a unidade de análise associados a cada figura e tabela.
+- `output/<id>/`: a demonstração grava `effective_config.toml`, `environment.json`, `manifest.json`, `run.log`, `synthetic_data.csv`, `dataset_manifest.json`, `component_demo.json`, predições/métricas sintéticas em `evaluation/` e figuras PDF/PNG. Checkpoints e artefatos científicos reais permanecem planejados. Manter o identificador, a revisão, a fonte e a unidade de análise associados a cada figura e tabela.
 - O esquema precisa contemplar execução concluída ou falha, e impedir que um artefato parcial seja apresentado como resultado concluído. Não registrar valor científico inventado como se viesse de uma execução real; usar somente dados sintéticos identificados nas verificações.
 
 ## Padrão de figuras para publicação
 
-O módulo `graficos.py` aplica o estilo e exporta a figura da demonstração usando Matplotlib e `matplotlib.rc_context`. As visualizações científicas e suas regras específicas ainda precisam ser implementadas; Seaborn pode ser usado quando útil. Os notebooks só chamam a API de apresentação.
+O módulo `plots.py` aplica o estilo e exporta figuras, matriz de confusão e métricas usando Matplotlib e `matplotlib.rc_context`. Seus formatos e dimensões devem ser conferidos com a editora; Seaborn pode ser usado quando útil. Os notebooks só chamam a API de apresentação.
 
 **Padrão inicial a adaptar às normas do veículo:**
 
@@ -96,8 +96,10 @@ O estilo sugerido pelo usuário (`font.family`, tamanhos, grade discreta, `savef
 Comandos disponíveis para a demonstração, executados na raiz:
 
 ```text
-uv run python scripts/experimento.py executar --config configs/demonstracao_sintetica.toml
-uv run python scripts/experimento.py mostrar --id ID_DA_EXECUCAO
+uv run python scripts/experiment.py run --config configs/synthetic_demo.toml
+uv run python scripts/experiment.py show --id ID_DA_EXECUCAO
 ```
 
 O comando e o notebook chamam a mesma API. A definição de comandos científicos permanece no backlog; nenhum comando de treino está pronto.
+
+Consulte [COMPONENTES.md](COMPONENTES.md) para os contratos de métricas, bootstrap, manifestos, divisão, modelo e perturbações. Código, scripts e notebooks usam inglês; comentários e docstrings devem conter inglês e português. Os formatos antigos de execução continuam acessíveis em leitura.

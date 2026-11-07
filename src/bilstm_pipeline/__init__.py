@@ -1,1 +1,1 @@
-"""Infraestrutura para experimentos reproduzíveis do projeto BILSTM."""
+"""Reproducible BILSTM experiments. / Experimentos BILSTM reproduzíveis."""

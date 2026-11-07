@@ -48,25 +48,27 @@ Cada experimento deve ser compreensível no notebook e executável pelo pipeline
 Para experimentar a infraestrutura com dados sintéticos, rode na raiz:
 
 ```powershell
-uv run python scripts/experimento.py executar --config configs/demonstracao_sintetica.toml --seed 42 --pontos 12
+uv run python scripts/experiment.py run --config configs/synthetic_demo.toml --seed 42 --points 12
 ```
 
 O comando devolve o ID da execução. Consulte-a sem executar novamente, substituindo o exemplo pelo ID informado:
 
 ```powershell
-uv run python scripts/experimento.py mostrar --id ID_DA_EXECUCAO
+uv run python scripts/experiment.py show --id ID_DA_EXECUCAO
 ```
 
-`seed` e `pontos` são substituições opcionais dos valores do TOML. A configuração completa e efetiva fica em `output/<id>/config_efetiva.toml`; o manifesto identifica os dados como sintéticos. IDs já existentes não são sobrescritos. Treino, avaliação de vídeos e demais etapas científicas ainda não foram implementados.
+`seed` e `points` são substituições opcionais dos valores do TOML. A configuração completa e efetiva fica em `output/<id>/effective_config.toml`; o manifesto identifica os dados como sintéticos. IDs já existentes não são sobrescritos. O exemplo também gera manifesto de dados, métricas, previsões, intervalos, perturbações e figuras sintéticas. Treino e avaliação de vídeos reais ainda não foram implementados.
+
+Os nomes do script, da configuração e das funções do notebook foram alterados para inglês; comandos e imports antigos em português devem ser atualizados conforme os exemplos acima. As execuções anteriormente salvas em `output/` continuam disponíveis para consulta pelo novo comando `show` e pela API `load_run`.
 
 ## 3. Onde cada coisa fica
 
 | Preciso guardar… | Use… | Exemplos |
 | --- | --- | --- |
-| Uma análise que apresenta parâmetros e gráficos | `notebooks/` | `01_metricas_base.ipynb`, `02_robustez.ipynb` |
+| Uma análise que apresenta parâmetros e gráficos | `notebooks/` | `01_baseline_metrics.ipynb`, `02_robustness.ipynb` |
 | Lógica compartilhada de processamento e apresentação | `src/bilstm_pipeline/` | pacote instalado pelo uv; demonstração sintética disponível |
 | Uma entrada de terminal que chama a API | `scripts/` | preparação, treino, avaliação, robustez |
-| Parâmetros de uma execução | `configs/` | `baseline.toml`, `robustez-brilho.toml` |
+| Parâmetros de uma execução | `configs/` | `baseline.toml`, `robustness-brightness.toml` |
 | Dataset original | `data/raw/` | vídeos e rótulos recebidos, sem alterações |
 | Dados convertidos/splits | `data/processed/` | metadados ou recortes produzidos pelo pipeline |
 | Métricas, logs, pesos e figuras geradas | `output/<id-da-execucao>/` | `metrics.csv`, `environment.json`, gráficos |
@@ -77,7 +79,7 @@ Dados e resultados em `data/` e `output/` são ignorados pelo Git. Versione as c
 ## 4. Regras para manter o projeto navegável
 
 - Procure primeiro na tabela acima; não crie outra pasta para uma categoria já coberta.
-- Use nomes curtos, descritivos e numerados para notebooks, por exemplo `01_baseline.ipynb` e `02_validacao_externa.ipynb`.
+- Use nomes curtos, descritivos, em inglês e numerados para notebooks, por exemplo `01_baseline.ipynb` e `02_external_validation.ipynb`.
 - Um notebook corresponde a uma pergunta ou etapa científica. Não crie um notebook por tentativa de parâmetro; registre variações na configuração e na saída da execução.
 - Mantenha implementação e estilo de gráficos no pacote; use `scripts/` como entradas de terminal e `notebooks/` como interface de alto nível.
 - Consulte o [backlog](plano-de-implementacao/BACKLOG.md) antes de iniciar trabalho. Atualize tarefas e evidências ao concluir, e siga [AGENTS.md](../AGENTS.md) para commits locais pequenos e rastreáveis.
@@ -88,4 +90,4 @@ Dados e resultados em `data/` e `output/` são ignorados pelo Git. Versione as c
 
 O plano atual prioriza MobileNetV2 + BiLSTM com atenção, métricas expandidas, robustez e validação externa. O dataset, o código original, os pesos, os logs e a definição de framework ainda precisam ser recebidos/confirmados. Por isso, este repositório configura o ambiente de notebook e análise, mas ainda não declara comandos de treino nem dependências específicas de PyTorch ou TensorFlow.
 
-A [arquitetura](plano-de-implementacao/ARQUITETURA.md) detalha a API, as exceções para parâmetros experimentais nas células e os padrões de figuras. A demonstração funciona; as etapas científicas seguem no backlog.
+A [arquitetura](plano-de-implementacao/ARQUITETURA.md) detalha a API e os padrões de figuras. O [guia de componentes](plano-de-implementacao/COMPONENTES.md) descreve as funções reutilizáveis e seus limites; as etapas científicas seguem no backlog.

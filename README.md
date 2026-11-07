@@ -14,10 +14,10 @@ uv run --group notebooks python -m ipykernel install --user --name bilstm-experi
 uv run --group notebooks jupyter lab
 ```
 
-No Jupyter, selecione o kernel **Python (BILSTM Experimentos)** e abra `notebooks/00_demonstracao_infraestrutura.ipynb`. Ele gera apenas dados sintéticos para demonstrar a interface, sem realizar treino ou avaliação científica. Também é possível executar a demonstração pelo terminal:
+No Jupyter, selecione o kernel **Python (BILSTM Experimentos)** e abra `notebooks/00_infrastructure_demo.ipynb`. Ele gera dados sintéticos e demonstra divisão por grupos, métricas, gráficos e perturbações, sem executar o modelo real. Também é possível executar a demonstração pelo terminal:
 
 ```powershell
-uv run python scripts/experimento.py executar --config configs/demonstracao_sintetica.toml
+uv run python scripts/experiment.py run --config configs/synthetic_demo.toml
 ```
 
 O comando informa um ID e grava os arquivos em `output/<id>/`. Veja o [tutorial de uso](docs/GUIA_DE_USO.md) para consultar uma execução anterior e conhecer as convenções do projeto.
@@ -28,14 +28,14 @@ O comando informa um ID e grava os arquivos em `output/<id>/`. Veja o [tutorial 
 | --- | --- |
 | `notebooks/` | Interface dos experimentos: pergunta, parâmetros experimentais, chamadas ao pipeline, tabelas e gráficos. |
 | `scripts/` | Entradas finas de linha de comando que chamam a mesma API dos notebooks. |
-| `src/bilstm_pipeline/` | Pacote Python de orquestração, parâmetros e apresentação; atualmente oferece apenas a demonstração sintética. |
+| `src/bilstm_pipeline/` | Pacote Python para parâmetros, divisão por grupos, métricas, gráficos, robustez e interface de modelo. |
 | `configs/` | Parâmetros versionados por experimento ou protocolo, usados para gerar a configuração efetiva de cada execução. |
 | `data/raw/` | Dados originais, mantidos fora do Git. Não editar os arquivos de origem. |
 | `data/processed/` | Dados derivados e divisões de treino, validação e teste, também fora do Git. |
 | `output/` | Resultados gerados, logs, checkpoints e figuras; por padrão, fora do Git. |
 | `docs/` | Contexto da pesquisa, decisões, documentação e tutoriais. |
 
-Consulte o [guia de uso](docs/GUIA_DE_USO.md) antes de criar arquivos ou pastas. A [arquitetura planejada](docs/plano-de-implementacao/ARQUITETURA.md) descreve o fluxo e o padrão de gráficos; o [backlog](docs/plano-de-implementacao/BACKLOG.md) é a fonte de andamento. Agentes devem seguir também [AGENTS.md](AGENTS.md).
+Consulte o [guia de uso](docs/GUIA_DE_USO.md) antes de criar arquivos ou pastas. A [arquitetura](docs/plano-de-implementacao/ARQUITETURA.md) descreve o fluxo, o [guia de componentes](docs/plano-de-implementacao/COMPONENTES.md) explica as funções já disponíveis e o [backlog](docs/plano-de-implementacao/BACKLOG.md) é a fonte de andamento. Agentes devem seguir também [AGENTS.md](AGENTS.md).
 
 ## Escopo científico atual
 
