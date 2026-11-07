@@ -9,34 +9,46 @@ import numpy as np
 SPLITS = ("train", "validation", "test")
 
 
+def _validate_record_fields(record: dict) -> None:
+    """Validate required fields. / Valida campos obrigatórios."""
+    if not isinstance(record, dict):
+        raise ValueError("Each record must be a dictionary.")
+    for field in ("sample_id", "video_id", "group_id", "source"):
+        if not isinstance(record.get(field), str) or not record[field].strip():
+            raise ValueError(f"{field} must be a nonempty string.")
+    label = record.get("label")
+    if label is not None and (type(label) is not int or label not in (0, 1)):
+        raise ValueError("label must be 0, 1 or None.")
+
+
+def _track_record(record, sample_ids, video_groups, hash_groups):
+    """Check relationships and duplicates. / Verifica relações e duplicatas."""
+    sample_id, video_id, group_id = record["sample_id"], record["video_id"], record["group_id"]
+    if sample_id in sample_ids:
+        raise ValueError(f"Duplicate sample_id: {sample_id}.")
+    sample_ids.add(sample_id)
+    if video_id in video_groups and video_groups[video_id] != group_id:
+        raise ValueError(f"Video {video_id} belongs to multiple groups.")
+    video_groups[video_id] = group_id
+    content_hash = record.get("sha256")
+    if content_hash is None:
+        return
+    if not isinstance(content_hash, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", content_hash):
+        raise ValueError("sha256 must contain 64 hexadecimal characters.")
+    content_hash = content_hash.lower()
+    if content_hash in hash_groups and hash_groups[content_hash] != group_id:
+        raise ValueError("Known duplicate content belongs to different groups.")
+    hash_groups[content_hash] = group_id
+
+
 def validate_records(records: Sequence[dict]) -> None:
     """Check identifiers and known duplicates. / Verifica identificadores e duplicatas conhecidas."""
     if not records:
         raise ValueError("The dataset must contain at least one record.")
     sample_ids, video_groups, hash_groups = set(), {}, {}
     for record in records:
-        if not isinstance(record, dict):
-            raise ValueError("Each record must be a dictionary.")
-        for field in ("sample_id", "video_id", "group_id", "source"):
-            if not isinstance(record.get(field), str) or not record[field].strip():
-                raise ValueError(f"{field} must be a nonempty string.")
-        if "label" in record and record["label"] is not None and (type(record["label"]) is not int or record["label"] not in (0, 1)):
-            raise ValueError("label must be 0, 1 or None.")
-        sample_id, video_id, group_id = record["sample_id"], record["video_id"], record["group_id"]
-        if sample_id in sample_ids:
-            raise ValueError(f"Duplicate sample_id: {sample_id}.")
-        sample_ids.add(sample_id)
-        if video_id in video_groups and video_groups[video_id] != group_id:
-            raise ValueError(f"Video {video_id} belongs to multiple groups.")
-        video_groups[video_id] = group_id
-        content_hash = record.get("sha256")
-        if content_hash is not None:
-            if not isinstance(content_hash, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", content_hash):
-                raise ValueError("sha256 must contain 64 hexadecimal characters.")
-            content_hash = content_hash.lower()
-            if content_hash in hash_groups and hash_groups[content_hash] != group_id:
-                raise ValueError("Known duplicate content belongs to different groups.")
-            hash_groups[content_hash] = group_id
+        _validate_record_fields(record)
+        _track_record(record, sample_ids, video_groups, hash_groups)
 
 
 def group_split(records: Sequence[dict], *, proportions=(0.7, 0.15, 0.15), seed=42) -> dict[str, str]:
@@ -66,6 +78,26 @@ def group_split(records: Sequence[dict], *, proportions=(0.7, 0.15, 0.15), seed=
     return assignments
 
 
+def _track_split(mapping, field, value, name):
+    """Prevent a shared entity crossing splits. / Impede entidade comum entre divisões."""
+    if value is None:
+        return
+    if field == "sha256":
+        value = value.lower()
+    if value in mapping and mapping[value] != name:
+        raise ValueError(f"{field} appears in multiple splits: {value}.")
+    mapping[value] = name
+
+
+def _update_summary(item, record):
+    """Count samples, groups and labels. / Conta amostras, grupos e rótulos."""
+    item["samples"] += 1
+    item["groups"].add(record["group_id"])
+    item["videos"].add(record["video_id"])
+    label = str(record["label"]) if record.get("label") is not None else "unknown"
+    item["labels"][label] += 1
+
+
 def validate_split(records: Sequence[dict], assignments: dict[str, str]) -> dict:
     """Reject overlap and report counts. / Rejeita vazamento e informa contagens."""
     validate_records(records)
@@ -77,30 +109,21 @@ def validate_split(records: Sequence[dict], assignments: dict[str, str]) -> dict
     for record in records:
         name = assignments[record["sample_id"]]
         for mapping, field in ((group_splits, "group_id"), (video_splits, "video_id"), (hash_splits, "sha256")):
-            value = record.get(field)
-            if value is not None:
-                value = value.lower() if field == "sha256" else value
-                if value in mapping and mapping[value] != name:
-                    raise ValueError(f"{field} appears in multiple splits: {value}.")
-                mapping[value] = name
-        item = summary[name]
-        item["samples"] += 1
-        item["groups"].add(record["group_id"])
-        item["videos"].add(record["video_id"])
-        item["labels"][str(record["label"]) if record.get("label") is not None else "unknown"] += 1
+            _track_split(mapping, field, record.get(field), name)
+        _update_summary(summary[name], record)
     for item in summary.values():
         item["groups"] = len(item["groups"])
         item["videos"] = len(item["videos"])
     return summary
 
 
-def save_manifest(path: str | Path, records: Sequence[dict], *, dataset_name: str, source: str, license_name: str, assignments: dict | None = None) -> None:
+def save_manifest(path: str | Path, records: Sequence[dict], *, dataset_name: str, source: str, license_name: str, assignments: dict | None = None, split_metadata: dict | None = None) -> None:
     """Save an explicit manifest. / Salva um manifesto explícito."""
     validate_records(records)
     if any(not isinstance(value, str) or not value.strip() for value in (dataset_name, source, license_name)):
         raise ValueError("Dataset name, source and license must be nonempty strings.")
     summary = validate_split(records, assignments) if assignments is not None else None
-    payload = {"dataset_name": dataset_name, "source": source, "license": license_name, "records": list(records), "assignments": assignments, "split_summary": summary}
+    payload = {"dataset_name": dataset_name, "source": source, "license": license_name, "records": list(records), "assignments": assignments, "split_summary": summary, "split_metadata": split_metadata}
     with Path(path).open("x", encoding="utf-8") as stream:
         json.dump(payload, stream, ensure_ascii=False, indent=2, allow_nan=False)
         stream.write("\n")

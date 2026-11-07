@@ -35,6 +35,8 @@ class ComponentTests(unittest.TestCase):
         result = grouped_bootstrap([0, 1, 0, 1], [0, 1, 1, 1], ["a", "a", "b", "b"], paired_pred=[0, 1, 1, 1], n_resamples=20, seed=7)
         self.assertEqual((result["estimate"], result["lower"], result["upper"]), (0.0, 0.0, 0.0))
         self.assertEqual(result["comparison"], "B - A")
+        improved = grouped_bootstrap([0, 1, 0, 1], [0, 1, 1, 1], ["a", "a", "b", "b"], paired_pred=[0, 1, 0, 1], n_resamples=20, seed=7)
+        self.assertEqual(improved["estimate"], 0.25)
 
     def test_group_split_and_known_duplicates(self):
         records = [{"sample_id": f"s{i}", "video_id": f"v{i // 2}", "group_id": f"g{i // 2}", "source": "synthetic", "label": i % 2} for i in range(12)]

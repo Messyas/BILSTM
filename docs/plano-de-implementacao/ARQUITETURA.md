@@ -20,9 +20,9 @@ scripts/ ────── chama a mesma API ──► src/bilstm_pipeline/
 
 | Local | Responsabilidade | Estado |
 | --- | --- | --- |
-| `notebooks/` | Expor objetivo, identificador da configuração, eventuais parâmetros do experimento, execução e apresentação de tabelas/gráficos. | Demonstração sintética disponível; notebooks de pesquisa são futuros. |
+| `notebooks/` | Expor objetivo, identificador da configuração, eventuais parâmetros do experimento, execução e apresentação de tabelas/gráficos. | Notebooks sintéticos de visão geral, avaliação, robustez e divisão disponíveis; notebooks com modelo real são futuros. |
 | `configs/` | Arquivos TOML versionados com parâmetros científicos e regras de execução reproduzíveis. | Esquema sintético disponível; esquema científico pendente. |
-| `scripts/` | Entradas finas de terminal que interpretam argumentos, invocam a API e retornam código de saída. Sem duplicar o pipeline. | `experiment.py` executa ou consulta a demonstração. |
+| `scripts/` | Entradas finas de terminal que interpretam argumentos, invocam a API e retornam código de saída. Sem duplicar o pipeline. | `experiment.py` executa/consulta demonstração; `evaluate.py` avalia CSV; `split_dataset.py` divide manifestos. |
 | `src/bilstm_pipeline/` | Pacote de validação, orquestração, divisão, métricas, robustez, artefatos e apresentação. | Instalável via uv; componentes disponíveis e integrados em demonstração sintética. Treino e modelo real são futuros. |
 | `data/raw/`, `data/processed/` | Originais preservados e dados derivados, respectivamente. | Existem; conteúdo científico ainda depende de recebimento. |
 | `output/<id>/` | Configuração efetiva, registro do ambiente, logs, métricas, predições, figuras e, se aplicável, pesos. | Diretório raiz existe; os artefatos são futuros e ignorados pelo Git. |
@@ -101,5 +101,7 @@ uv run python scripts/experiment.py show --id ID_DA_EXECUCAO
 ```
 
 O comando e o notebook chamam a mesma API. A definição de comandos científicos permanece no backlog; nenhum comando de treino está pronto.
+
+Além da demonstração, os scripts de avaliação de CSV e divisão de manifesto executam tarefas reais e genéricas em arquivos fornecidos pelo usuário. Os notebooks atuais apresentam cenários sintéticos específicos; nenhum deles realiza inferência com o modelo original.
 
 Consulte [COMPONENTES.md](COMPONENTES.md) para os contratos de métricas, bootstrap, manifestos, divisão, modelo e perturbações. Código, scripts e notebooks usam inglês; comentários e docstrings devem conter inglês e português. Os formatos antigos de execução continuam acessíveis em leitura.

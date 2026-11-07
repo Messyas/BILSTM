@@ -19,6 +19,7 @@ from .plots import plot_demo
 from .synthetic import run_components
 
 _RUN_ID = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$")
+_MANIFEST_FILENAME = "manifest.json"
 
 
 def run_path(run_id: str) -> Path:
@@ -65,7 +66,7 @@ def run(config_path: str | Path, overrides: dict | None = None, *, run_id: str |
         "unit": "illustrative observation", "started_utc": datetime.now(timezone.utc).isoformat(),
     }
     try:
-        write_json(target / "manifest.json", manifest)
+        write_json(target / _MANIFEST_FILENAME, manifest)
         with (target / "effective_config.toml").open("wb") as stream:
             tomli_w.dump(config, stream)
         write_json(target / "environment.json", _environment())
@@ -78,10 +79,10 @@ def run(config_path: str | Path, overrides: dict | None = None, *, run_id: str |
         run_components(target, seed=config["experiment"]["seed"])
         manifest.update(status="completed", finished_utc=datetime.now(timezone.utc).isoformat())
         (target / "run.log").write_text("Synthetic demonstration completed.\n", encoding="utf-8")
-        write_json(target / "manifest.json", manifest)
+        write_json(target / _MANIFEST_FILENAME, manifest)
     except Exception as error:
         manifest.update(status="failed", finished_utc=datetime.now(timezone.utc).isoformat())
-        write_json(target / "manifest.json", manifest)
+        write_json(target / _MANIFEST_FILENAME, manifest)
         (target / "run.log").write_text(f"Failure: {type(error).__name__}.\n", encoding="utf-8")
         raise
     return run_id
@@ -90,7 +91,7 @@ def run(config_path: str | Path, overrides: dict | None = None, *, run_id: str |
 def load_run(run_id: str) -> dict:
     """Read a completed run, including legacy runs. / Lê execução concluída, inclusive anterior."""
     target = run_path(run_id)
-    manifest_path = target / "manifest.json"
+    manifest_path = target / _MANIFEST_FILENAME
     legacy = not manifest_path.exists()
     if legacy:
         manifest_path = target / "manifesto.json"

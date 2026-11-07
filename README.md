@@ -14,7 +14,7 @@ uv run --group notebooks python -m ipykernel install --user --name bilstm-experi
 uv run --group notebooks jupyter lab
 ```
 
-No Jupyter, selecione o kernel **Python (BILSTM Experimentos)** e abra `notebooks/00_infrastructure_demo.ipynb`. Ele gera dados sintéticos e demonstra divisão por grupos, métricas, gráficos e perturbações, sem executar o modelo real. Também é possível executar a demonstração pelo terminal:
+No Jupyter, selecione o kernel **Python (BILSTM Experimentos)**. Os notebooks em `notebooks/` incluem uma visão geral e análises separadas de avaliação, robustez e divisão por grupos. Eles usam dados sintéticos e não executam o modelo real. Também é possível executar a demonstração pelo terminal:
 
 ```powershell
 uv run python scripts/experiment.py run --config configs/synthetic_demo.toml

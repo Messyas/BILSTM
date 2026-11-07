@@ -76,3 +76,29 @@ def plot_binary_metrics(metrics: dict, output_dir: str | Path, *, title="Binary 
             figure.savefig(output_dir / "binary_metrics.png", dpi=300)
         finally:
             plt.close(figure)
+
+
+def plot_robustness_comparison(perturbations: dict, output_dir: str | Path, *, title="Robustness comparison") -> None:
+    """Plot paired accuracy differences. / Desenha diferenças pareadas de acurácia."""
+    if not perturbations:
+        raise ValueError("At least one perturbation is required.")
+    names = list(perturbations)
+    intervals = [perturbations[name]["paired_accuracy_difference"] for name in names]
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    with mpl.rc_context(STYLE):
+        figure, axes = plt.subplots(figsize=(17 / 2.54, 10 / 2.54), layout="constrained")
+        try:
+            for index, interval in enumerate(intervals):
+                axes.hlines(index, interval["lower"], interval["upper"], color="#0173b2", linewidth=2)
+                if interval["estimate"] is not None:
+                    axes.plot(interval["estimate"], index, "o", color="#0173b2")
+            axes.axvline(0, color="black", linestyle="--", linewidth=1)
+            axes.set_yticks(range(len(names)), labels=names)
+            axes.set(xlabel="Accuracy difference (perturbed − clean)", title=title)
+            axes.spines["top"].set_visible(False)
+            axes.spines["right"].set_visible(False)
+            figure.savefig(output_dir / "robustness.pdf")
+            figure.savefig(output_dir / "robustness.png", dpi=300)
+        finally:
+            plt.close(figure)

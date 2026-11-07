@@ -61,6 +61,15 @@ uv run python scripts/experiment.py show --id ID_DA_EXECUCAO
 
 Os nomes do script, da configuração e das funções do notebook foram alterados para inglês; comandos e imports antigos em português devem ser atualizados conforme os exemplos acima. As execuções anteriormente salvas em `output/` continuam disponíveis para consulta pelo novo comando `show` e pela API `load_run`.
 
+Para reavaliar o CSV gerado pela demonstração, substitua `ID_DA_EXECUCAO` pelo ID recebido:
+
+```powershell
+uv run python scripts/evaluate.py --input output/ID_DA_EXECUCAO/evaluation/predictions.csv --output output/ID_DA_EXECUCAO/reevaluation --source synthetic --unit sample --threshold 0.5
+uv run python scripts/split_dataset.py --input output/ID_DA_EXECUCAO/dataset_manifest.json --output output/ID_DA_EXECUCAO/new_split.json --seed 42
+```
+
+Esses scripts também aceitam arquivos próprios no mesmo formato; informe corretamente origem, unidade e limiar. Uma divisão por grupos não estratificada deve ser revisada antes do uso científico. As saídas precisam ser caminhos novos e seus diretórios pais devem existir.
+
 ## 3. Onde cada coisa fica
 
 | Preciso guardar… | Use… | Exemplos |

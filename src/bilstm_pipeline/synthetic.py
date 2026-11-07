@@ -7,7 +7,7 @@ import numpy as np
 from .dataset import group_split, save_manifest
 from .metrics import binary_metrics, grouped_bootstrap
 from .model import predict
-from .plots import plot_binary_metrics, plot_confusion_matrix
+from .plots import plot_binary_metrics, plot_confusion_matrix, plot_robustness_comparison
 from .results import save_evaluation
 from .robustness import brightness, contrast, gaussian_noise, occlusion
 
@@ -35,7 +35,8 @@ def run_components(output_dir: Path, *, seed: int) -> None:
         for index in range(size)
     ]
     assignments = group_split(records, seed=seed)
-    save_manifest(output_dir / "dataset_manifest.json", records, dataset_name="Synthetic demonstration", source="Randomly generated in the project", license_name="Not applicable: synthetic demonstration", assignments=assignments)
+    split_metadata = {"seed": seed, "proportions": [0.7, 0.15, 0.15], "algorithm": "group_split", "stratified": False}
+    save_manifest(output_dir / "dataset_manifest.json", records, dataset_name="Synthetic demonstration", source="Randomly generated in the project", license_name="Not applicable: synthetic demonstration", assignments=assignments, split_metadata=split_metadata)
     evaluation = save_evaluation(output_dir / "evaluation", sample_ids=[item["sample_id"] for item in records], y_true=labels, y_pred=predictions, scores=scores, threshold=threshold, source="Synthetic demonstration only", unit="synthetic sample")
     figure_dir = output_dir / "figures"
     plot_confusion_matrix(evaluation["metrics"], figure_dir, class_names=("Class 0", "Class 1"), title="Synthetic confusion matrix")
@@ -66,3 +67,4 @@ def run_components(output_dir: Path, *, seed: int) -> None:
         "accuracy_interval": interval, "perturbations": perturbed,
     }
     (output_dir / "component_demo.json").write_text(json.dumps(output, indent=2, ensure_ascii=False, allow_nan=False) + "\n", encoding="utf-8")
+    plot_robustness_comparison(perturbed, figure_dir, title="Synthetic robustness comparison")

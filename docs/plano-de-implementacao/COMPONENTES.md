@@ -26,13 +26,13 @@ interval = grouped_bootstrap(
 
 `group_split` distribui **grupos**, não a quantidade de vídeos ou janelas, e não faz estratificação. Assim, proporções e classes por partição podem diferir das metas e uma classe pode faltar. Confira o resumo produzido por `validate_split` e decida o protocolo antes de executar pesquisa. O validador detecta o mesmo grupo, vídeo ou hash conhecido em partições diferentes; ele não detecta automaticamente versões editadas de um mesmo vídeo nem garante que grupos independentes tenham sido definidos corretamente.
 
-`save_manifest` exige nome, origem e licença e salva os registros, atribuições e contagens. Ele não copia arquivos de vídeo nem descobre permissões. Não inclua segredos ou dados pessoais no manifesto e mantenha os artefatos de dados em `data/` ou `output/`, ignorados pelo Git.
+`save_manifest` exige nome, origem e licença e salva os registros, atribuições e contagens. `scripts/split_dataset.py` lê um manifesto e grava outro com divisão, seed, proporções e método. Ele não copia arquivos de vídeo nem descobre permissões. Não inclua segredos ou dados pessoais no manifesto e mantenha os artefatos de dados em `data/` ou `output/`, ignorados pelo Git.
 
 ## 3. Interface do modelo e registro de resultados
 
 `bilstm_pipeline.model.ModelAdapter` define `predict_scores(batch)`: o adaptador real deverá devolver uma probabilidade da classe positiva por amostra. `predict(adapter, batch, threshold=...)` valida os valores em `[0, 1]` e produz os rótulos. A interface não determina arquitetura, pré-processamento, treinamento ou framework; esses detalhes dependem do código original.
 
-`bilstm_pipeline.results.save_evaluation` recebe IDs únicos, rótulos verdadeiros, predições, origem e unidade; opcionalmente recebe scores e limiar. Ele verifica a compatibilidade entre scores, limiar e predições e cria `evaluation.json` e `predictions.csv` em um diretório novo, recusando sobrescrita. A unidade pode ser janela, vídeo ou outra unidade efetivamente usada; uma predição por janela não equivale automaticamente a um alerta.
+`bilstm_pipeline.results.save_evaluation` recebe IDs únicos, rótulos verdadeiros, predições, origem e unidade; opcionalmente recebe scores e limiar. Ele verifica a compatibilidade entre scores, limiar e predições e cria `evaluation.json` e `predictions.csv` em um diretório novo, recusando sobrescrita. `scripts/evaluate.py` executa esse fluxo a partir de um CSV existente e gera as figuras. A unidade pode ser janela, vídeo ou outra unidade efetivamente usada; uma predição por janela não equivale automaticamente a um alerta.
 
 As execuções novas usam nomes de arquivo e chaves em inglês. `load_run` e as funções de apresentação continuam lendo as execuções anteriores em português, sem alterar seus arquivos.
 

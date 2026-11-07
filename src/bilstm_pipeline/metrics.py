@@ -1,10 +1,10 @@
 """Binary evaluation and grouped uncertainty. / Avaliação binária e incerteza por grupos."""
 
-from collections.abc import Sequence
 import numpy as np
+from numpy.typing import ArrayLike, NDArray
 
 
-def _labels(values: Sequence[int], name: str) -> np.ndarray:
+def _labels(values: ArrayLike, name: str) -> NDArray[np.int_]:
     array = np.asarray(values)
     if array.ndim != 1 or not len(array) or not np.isin(array, [0, 1]).all():
         raise ValueError(f"{name} must be a nonempty one-dimensional sequence of 0 and 1.")
@@ -15,7 +15,7 @@ def _ratio(numerator: int, denominator: int) -> float | None:
     return float(numerator / denominator) if denominator else None
 
 
-def binary_metrics(y_true: Sequence[int], y_pred: Sequence[int]) -> dict:
+def binary_metrics(y_true: ArrayLike, y_pred: ArrayLike) -> dict:
     """Evaluate labels 0/1. / Avalia rótulos 0/1; 1 é a classe positiva."""
     true, pred = _labels(y_true, "y_true"), _labels(y_pred, "y_pred")
     if len(true) != len(pred):
@@ -54,9 +54,8 @@ def _metric_value(metrics: dict, name: str) -> float | None:
     return metrics[name]
 
 
-def grouped_bootstrap(y_true, y_pred, groups, *, metric="accuracy", n_resamples=1000, seed=42, confidence=0.95, paired_pred=None) -> dict:
-    """Resample whole groups; paired result is B minus A. / Reamostra grupos; comparação pareada é B menos A."""
-    true, pred = _labels(y_true, "y_true"), _labels(y_pred, "y_pred")
+def _validate_bootstrap_groups(true, pred, groups, paired_pred):
+    """Validate inputs and groups. / Valida entradas e grupos."""
     group_array = np.asarray(groups)
     if group_array.ndim != 1 or len(true) != len(pred) or len(true) != len(group_array):
         raise ValueError("Labels, predictions and groups must have equal lengths.")
@@ -65,26 +64,53 @@ def grouped_bootstrap(y_true, y_pred, groups, *, metric="accuracy", n_resamples=
     other = None if paired_pred is None else _labels(paired_pred, "paired_pred")
     if other is not None and len(other) != len(true):
         raise ValueError("paired_pred must have the same length as y_true.")
+    unique = np.unique(group_array)
+    if len(unique) < 2:
+        raise ValueError("At least two independent groups are required.")
+    return group_array, unique, other
+
+
+def _validate_bootstrap_options(n_resamples, seed, confidence):
+    """Validate resampling options. / Valida opções de reamostragem."""
     if type(n_resamples) is not int or n_resamples < 2 or not 0 < confidence < 1:
         raise ValueError("n_resamples must be at least 2 and confidence must be between 0 and 1.")
     if type(seed) is not int or seed < 0:
         raise ValueError("seed must be a nonnegative integer.")
-    unique = np.unique(group_array)
-    if len(unique) < 2:
-        raise ValueError("At least two independent groups are required.")
-    indices = [np.flatnonzero(group_array == group) for group in unique]
-    original = _metric_value(binary_metrics(true, pred), metric)
-    original_other = None if other is None else _metric_value(binary_metrics(true, other), metric)
-    estimate = None if original is None or (other is not None and original_other is None) else (original if other is None else original_other - original)
+
+
+def _comparison_value(true, pred, other, metric):
+    """Compute a metric or paired difference. / Calcula métrica ou diferença pareada."""
+    value = _metric_value(binary_metrics(true, pred), metric)
+    if value is None or other is None:
+        return value
+    value_b = _metric_value(binary_metrics(true, other), metric)
+    if value_b is None:
+        return None
+    return value_b - value
+
+
+def _bootstrap_samples(true, pred, other, indices, metric, n_resamples, seed):
+    """Resample groups as units. / Reamostra grupos como unidades."""
     rng = np.random.default_rng(seed)
     samples = []
     for _ in range(n_resamples):
         chosen = rng.integers(0, len(indices), size=len(indices))
         selected = np.concatenate([indices[index] for index in chosen])
-        value = _metric_value(binary_metrics(true[selected], pred[selected]), metric)
-        value_b = None if other is None else _metric_value(binary_metrics(true[selected], other[selected]), metric)
-        if value is not None and (other is None or value_b is not None):
-            samples.append(value if other is None else value_b - value)
+        other_selected = other[selected] if other is not None else None
+        value = _comparison_value(true[selected], pred[selected], other_selected, metric)
+        if value is not None:
+            samples.append(value)
+    return samples
+
+
+def grouped_bootstrap(y_true, y_pred, groups, *, metric="accuracy", n_resamples=1000, seed=42, confidence=0.95, paired_pred=None) -> dict:
+    """Resample whole groups; paired result is B minus A. / Reamostra grupos; comparação pareada é B menos A."""
+    true, pred = _labels(y_true, "y_true"), _labels(y_pred, "y_pred")
+    group_array, unique, other = _validate_bootstrap_groups(true, pred, groups, paired_pred)
+    _validate_bootstrap_options(n_resamples, seed, confidence)
+    indices = [np.flatnonzero(group_array == group) for group in unique]
+    estimate = _comparison_value(true, pred, other, metric)
+    samples = _bootstrap_samples(true, pred, other, indices, metric, n_resamples, seed)
     if len(samples) < 2:
         raise ValueError("Fewer than two valid bootstrap samples; the metric cannot be estimated.")
     alpha = (1 - confidence) * 50
