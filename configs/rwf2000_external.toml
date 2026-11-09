@@ -51,3 +51,4 @@ noise_sigma = 0.05
 occlusion_fraction = 0.1
 jpeg_quality = 50
 video_crf = 28
+
