@@ -2,7 +2,7 @@
 
 Este repositório organiza os experimentos computacionais de um capítulo sobre **prontidão da infraestrutura de dados e governança territorial**. O caso empírico é a detecção de conflitos humanos em vídeo com uma CNN + BiLSTM; o foco técnico atual é aprofundar a avaliação do modelo MobileNetV2 + BiLSTM, com atenção, e produzir resultados reproduzíveis que apoiem a discussão do capítulo.
 
-Os notebooks são a interface de experimentação: apresentam objetivo, parâmetros experimentais, execução e gráficos. O pacote Python reutilizável é chamado pelos notebooks e por scripts de linha de comando. O dataset RLVS e os notebooks originais de extração (`FEATURE_EXTRACTION.ipynb`) e treinamento (`parametro_alterado_definitivo_densenet121_att(1).ipynb`) foram enviados por Erick Farias; a arquitetura (escolha entre `MobileNetV2`, `DenseNet121` e `InceptionV3`, BiLSTM de 32 unidades, atenção por soma ponderada e 4 camadas densas) e os hiperparâmetros (`SGD`, `EarlyStopping` e `ReduceLROnPlateau`) estão integrados ao pipeline em PyTorch, enquanto os arquivos de pesos `.keras` originais não foram anexados.
+Os notebooks são a interface de experimentação: apresentam objetivo, parâmetros experimentais, execução e gráficos. O pacote Python reutilizável é chamado pelos notebooks e por scripts de linha de comando. O dataset RLVS e os notebooks originais de extração (`FEATURE_EXTRACTION.ipynb`) e treinamento (`parametro_alterado_definitivo_densenet121_att(1).ipynb`) foram enviados por Erick Farias; a arquitetura original (`MobileNetV2`, `DenseNet121` e `InceptionV3` + `BiLSTM` + atenção por soma ponderada), novas arquiteturas modernas (`MobileNetV3-Large`, `EfficientNetV2-S`, `ConvNeXt-Tiny`, `Swin-T` e `ViT-B/16`, além de `TemporalTransformerEncoder`) e os hiperparâmetros (`SGD`, `EarlyStopping` e `ReduceLROnPlateau`) estão integrados ao pipeline em PyTorch, enquanto os arquivos de pesos `.keras` originais não foram anexados.
 
 ## Começar
 
@@ -22,9 +22,10 @@ O pesquisador identificou o [Real Life Violence Situations Dataset no Kaggle](ht
 
 ```powershell
 uv run --group data python scripts/download_dataset.py
+uv run --group data python scripts/download_dataset.py --dataset rwf2000
 ```
 
-O comando baixa a versão 1 em `data/raw/rlvs-v1/` e registra a origem e o SHA-256 do arquivo baixado. Os vídeos ficam fora do Git. A versão e as partições usadas no trabalho anterior ainda precisam ser confirmadas.
+O primeiro comando baixa a versão 1 do RLVS em `data/raw/rlvs-v1/`; o segundo baixa o benchmark externo **RWF-2000** (`vulamnguyen/rwf2000`, 2.000 vídeos de câmeras de vigilância reais em `Fight`/`NonFight`) em `data/raw/rwf2000-v1/` para avaliação *cross-dataset* justa (`configs/rwf2000_external.toml`). Também há atalhos para `scvd` (`toluwaniaremu/smartcity-cctv-violence-detection-dataset-scvd`) e `hockey` (`yassershrief/hockey-fight-vidoes`). Os vídeos ficam fora do Git. A versão e as partições usadas no trabalho anterior ainda precisam ser confirmadas.
 
 ### Executar no servidor
 

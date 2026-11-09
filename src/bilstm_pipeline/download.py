@@ -13,8 +13,32 @@ import zipfile
 from .paths import project_root
 
 DATASET_REF = "mohamedmustafa/real-life-violence-situations-dataset"
+RWF2000_DATASET_REF = "vulamnguyen/rwf2000"
+SCVD_DATASET_REF = "toluwaniaremu/smartcity-cctv-violence-detection-dataset-scvd"
+HOCKEY_DATASET_REF = "yassershrief/hockey-fight-vidoes"
+DATASET_ALIASES = {
+    "rlvs": DATASET_REF,
+    "rwf2000": RWF2000_DATASET_REF,
+    "scvd": SCVD_DATASET_REF,
+    "hockey": HOCKEY_DATASET_REF,
+}
 DEFAULT_VERSION = 1
 METADATA_FILENAME = "download_metadata.json"
+
+
+def _resolve_dataset_ref(dataset: str) -> tuple[str, str]:
+    """Resolve alias or Kaggle owner/slug reference. / Resolve apelido ou referência owner/slug do Kaggle."""
+    if not isinstance(dataset, str) or not dataset.strip():
+        raise ValueError("Dataset reference must be a nonempty string.")
+    token = dataset.strip()
+    alias = token.casefold()
+    if alias in DATASET_ALIASES:
+        return DATASET_ALIASES[alias], alias
+    parts = token.split("/")
+    if len(parts) != 2 or not all(parts):
+        raise ValueError(f"Dataset must be a known alias ({', '.join(DATASET_ALIASES)}) or '<owner>/<slug>'.")
+    reverse = {ref: key for key, ref in DATASET_ALIASES.items()}
+    return token, reverse.get(token, parts[1])
 
 
 def _sha256(path: Path) -> str:
@@ -54,11 +78,12 @@ def _extract_archive(archive: Path, destination: Path) -> int:
     return count
 
 
-def download_dataset(*, version: int = DEFAULT_VERSION, output: str | Path | None = None) -> Path:
+def download_dataset(*, dataset: str = DATASET_REF, version: int = DEFAULT_VERSION, output: str | Path | None = None) -> Path:
     """Download and extract one version. / Baixa e extrai uma versão."""
     if type(version) is not int or version < 1:
         raise ValueError("Dataset version must be a positive integer.")
-    target = Path(output).expanduser() if output is not None else project_root() / "data" / "raw" / f"rlvs-v{version}"
+    dataset_ref, short_name = _resolve_dataset_ref(dataset)
+    target = Path(output).expanduser() if output is not None else project_root() / "data" / "raw" / f"{short_name}-v{version}"
     target = target.resolve()
     if target.exists():
         raise FileExistsError(f"Destination already exists: {target}. Choose another path.")
@@ -66,8 +91,8 @@ def download_dataset(*, version: int = DEFAULT_VERSION, output: str | Path | Non
     if kaggle is None:
         raise FileNotFoundError("Kaggle CLI not found. Run this script with 'uv run --group data'.")
     target.parent.mkdir(parents=True, exist_ok=True)
-    reference = f"{DATASET_REF}/{version}"
-    with tempfile.TemporaryDirectory(prefix=".rlvs-download-", dir=target.parent) as temporary:
+    reference = f"{dataset_ref}/{version}"
+    with tempfile.TemporaryDirectory(prefix=f".{short_name}-download-", dir=target.parent) as temporary:
         staging = Path(temporary)
         archive_dir = staging / "archive"
         extracted = staging / "extracted"
@@ -83,8 +108,8 @@ def download_dataset(*, version: int = DEFAULT_VERSION, output: str | Path | Non
         checksum = _sha256(archive)
         file_count = _extract_archive(archive, extracted)
         metadata = {
-            "dataset": DATASET_REF, "version": version,
-            "url": f"https://www.kaggle.com/datasets/{DATASET_REF}",
+            "dataset": dataset_ref, "version": version,
+            "url": f"https://www.kaggle.com/datasets/{dataset_ref}",
             "downloaded_at_utc": datetime.now(timezone.utc).isoformat(),
             "archive_sha256": checksum, "archive_bytes": archive.stat().st_size,
             "extracted_files": file_count,

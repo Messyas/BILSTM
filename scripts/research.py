@@ -21,7 +21,20 @@ def main() -> None:
     train.add_argument("--manifest")
     train.add_argument("--seed", type=int)
     train.add_argument("--device", choices=("cpu", "cuda", "auto"))
-    train.add_argument("--backbone", choices=("mobilenet_v2", "densenet121", "inception_v3"))
+    train.add_argument(
+        "--backbone",
+        choices=(
+            "mobilenet_v2",
+            "mobilenet_v3_large",
+            "densenet121",
+            "inception_v3",
+            "efficientnet_v2_s",
+            "convnext_tiny",
+            "swin_t",
+            "vit_b_16",
+        ),
+    )
+    train.add_argument("--temporal-head", choices=("bilstm", "transformer"))
     train.add_argument("--attention", action=argparse.BooleanOptionalAction)
     train.add_argument("--batch-size", type=int)
     train.add_argument("--learning-rate", type=float)
@@ -48,6 +61,7 @@ def main() -> None:
                 seed=args.seed,
                 device=args.device,
                 backbone=args.backbone,
+                temporal_head=args.temporal_head,
                 attention=args.attention,
                 batch_size=args.batch_size,
                 learning_rate=args.learning_rate,

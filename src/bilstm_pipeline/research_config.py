@@ -7,15 +7,28 @@ import tomllib
 
 from .paths import project_root
 
-_BACKBONES = ("mobilenet_v2", "densenet121", "inception_v3")
+_BACKBONES = (
+    "mobilenet_v2",
+    "mobilenet_v3_large",
+    "densenet121",
+    "inception_v3",
+    "efficientnet_v2_s",
+    "convnext_tiny",
+    "swin_t",
+    "vit_b_16",
+)
 _POOLING_MODES = ("avg", "flatten")
+_TEMPORAL_HEADS = ("bilstm", "transformer")
 _OPTIMIZERS = ("sgd", "adam")
 
 _FIELDS = {
     "data": {"root", "manifest"},
     "split": {"train", "validation", "test", "seed"},
     "video": {"frames", "width", "height"},
-    "model": {"backbone", "pretrained", "trainable_layers", "pooling", "hidden_size", "attention", "dense_units", "dropout"},
+    "model": {
+        "backbone", "pretrained", "trainable_layers", "pooling",
+        "temporal_head", "hidden_size", "attention", "dense_units", "dropout",
+    },
     "training": {
         "epochs", "batch_size", "optimizer", "learning_rate", "momentum", "weight_decay",
         "lr_factor", "lr_patience", "min_learning_rate", "early_stopping_patience",
@@ -103,6 +116,8 @@ def _validate_training_options(config):
         raise ValueError(f"model.backbone must be one of: {', '.join(_BACKBONES)}.")
     if config["model"]["pooling"] not in _POOLING_MODES:
         raise ValueError(f"model.pooling must be one of: {', '.join(_POOLING_MODES)}.")
+    if config["model"]["temporal_head"] not in _TEMPORAL_HEADS:
+        raise ValueError(f"model.temporal_head must be one of: {', '.join(_TEMPORAL_HEADS)}.")
     for key in ("pretrained", "attention"):
         if type(config["model"][key]) is not bool:
             raise ValueError(f"model.{key} must be boolean.")
@@ -157,6 +172,7 @@ def _apply_defaults(config: dict) -> None:
         model.setdefault("backbone", "mobilenet_v2")
         model.setdefault("trainable_layers", 80)
         model.setdefault("pooling", "avg")
+        model.setdefault("temporal_head", "bilstm")
         model.setdefault("attention", True)
         model.setdefault("dense_units", [256, 128, 64, 32])
         if isinstance(model.get("dense_units"), tuple):

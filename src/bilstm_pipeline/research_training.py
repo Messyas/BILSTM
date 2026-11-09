@@ -219,12 +219,14 @@ def _finish_run(target: Path, status: dict, *, best_loss: float | None = None, b
             stream.write(f"Failed: {type(error).__name__}: {error}\n")
 
 
-def _apply_overrides(config: dict, *, device: str | None, backbone: str | None, attention: bool | None, batch_size: int | None, learning_rate: float | None, min_learning_rate: float | None, epochs: int | None) -> dict:
+def _apply_overrides(config: dict, *, device: str | None, backbone: str | None, temporal_head: str | None, attention: bool | None, batch_size: int | None, learning_rate: float | None, min_learning_rate: float | None, epochs: int | None) -> dict:
     """Apply explicit experiment overrides and revalidate. / Aplica substituicoes explicitas e revalida."""
     if device is not None:
         config["training"]["device"] = device
     if backbone is not None:
         config["model"]["backbone"] = backbone
+    if temporal_head is not None:
+        config["model"]["temporal_head"] = temporal_head
     if attention is not None:
         config["model"]["attention"] = attention
     if batch_size is not None:
@@ -246,6 +248,7 @@ def train_model(
     seed: int | None = None,
     device: str | None = None,
     backbone: str | None = None,
+    temporal_head: str | None = None,
     attention: bool | None = None,
     batch_size: int | None = None,
     learning_rate: float | None = None,
@@ -258,6 +261,7 @@ def train_model(
         config,
         device=device,
         backbone=backbone,
+        temporal_head=temporal_head,
         attention=attention,
         batch_size=batch_size,
         learning_rate=learning_rate,

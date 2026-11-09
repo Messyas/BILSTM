@@ -2,10 +2,15 @@
 
 _EVALUATION_FILENAME = "evaluation.json"
 
-def prepare_research(config: str):
+def prepare_research(
+    config: str,
+    *,
+    dataset_name: str = "RLVS",
+    source: str = "mohamedmustafa/real-life-violence-situations-dataset",
+):
     """Prepare the real dataset manifest. / Prepara o manifesto do dataset real."""
     from .research_data import prepare_dataset
-    return prepare_dataset(config)
+    return prepare_dataset(config, dataset_name=dataset_name, source=source)
 
 
 def show_research_dataset(config: str) -> None:
@@ -27,6 +32,7 @@ def train_research(
     seed: int | None = None,
     device: str | None = None,
     backbone: str | None = None,
+    temporal_head: str | None = None,
     attention: bool | None = None,
     batch_size: int | None = None,
     learning_rate: float | None = None,
@@ -40,6 +46,7 @@ def train_research(
         seed=seed,
         device=device,
         backbone=backbone,
+        temporal_head=temporal_head,
         attention=attention,
         batch_size=batch_size,
         learning_rate=learning_rate,

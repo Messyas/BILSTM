@@ -56,10 +56,10 @@ O pesquisador identificou o [Real Life Violence Situations Dataset](https://www.
 
 Os arquivos serão extraídos em `data/raw/rlvs-v1/`, ignorados pelo Git. A API pública do Kaggle informava cerca de 1,95 GB para os arquivos em 07/11/2026; é necessário espaço adicional para o ZIP e a extração. O arquivo `download_metadata.json` registra referência, versão, data e SHA-256 do ZIP para rastreabilidade. O ZIP é temporário e é removido após a extração.
 
-O comando não sobrescreve um destino existente. Para usar outra versão publicada pelo Kaggle ou outro local, por exemplo:
+O comando não sobrescreve um destino existente. Para baixar o dataset externo recomendado para avaliação *cross-dataset* (**RWF-2000**, `vulamnguyen/rwf2000`, com 2.000 vídeos de câmeras de vigilância reais em `Fight` e `NonFight`) ou outras bases do Kaggle (`scvd`, `hockey`):
 
 ```powershell
-uv run --group data python scripts/download_dataset.py --version 1 --output data/raw/rlvs-copy
+uv run --group data python scripts/download_dataset.py --dataset rwf2000
 ```
 
 Uma falha de autenticação, rede ou extração encerra o comando sem publicar a pasta final. Após o download, siga o [guia de execução no servidor](plano-de-implementacao/EXECUCAO_NO_SERVIDOR.md) para inventariar os vídeos, treinar e avaliar a reconstrução proposta.

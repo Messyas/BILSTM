@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import patch
 import zipfile
 
-from bilstm_pipeline.download import DATASET_REF, download_dataset
+from bilstm_pipeline.download import DATASET_REF, RWF2000_DATASET_REF, download_dataset
 
 
 class DownloadTests(unittest.TestCase):
@@ -35,6 +35,11 @@ class DownloadTests(unittest.TestCase):
             self.assertEqual(metadata["version"], 1)
             self.assertEqual(metadata["archive_sha256"], captured["sha256"])
             self.assertEqual((target / "Violence" / "example.mp4").read_bytes(), b"synthetic bytes")
+
+            rwf_target = Path(temporary) / "rwf2000-v1"
+            with patch("bilstm_pipeline.download.shutil.which", return_value="kaggle"), patch("bilstm_pipeline.download.subprocess.run", side_effect=fake_download):
+                self.assertEqual(download_dataset(dataset="rwf2000", output=rwf_target), rwf_target.resolve())
+            self.assertEqual(captured["reference"], RWF2000_DATASET_REF + "/1")
 
     def test_existing_destination_is_preserved(self):
         with tempfile.TemporaryDirectory() as temporary:

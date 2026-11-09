@@ -21,7 +21,7 @@ Revise `configs/rlvs_baseline.toml` antes da execução. Os parâmetros reproduz
 
 - **Divisão (`[split]`):** `train = 0.64`, `validation = 0.16`, `test = 0.20` e `seed = 42` (nos 2000 vídeos do RLVS, equivale a 1280 vídeos de treino, 320 de validação e 400 de teste, obtida originalmente com `test_size = 0.20` e `validation_split = 0.20`).
 - **Sequência de vídeo (`[video]`):** `frames = 15`, `width = 100`, `height = 100`, amostrados com passo inteiro `total_frames // 15` e normalizados em `[0, 1]` (`/ 255`).
-- **Modelo (`[model]`):** `backbone` selecionável entre `"mobilenet_v2"` (padrão), `"densenet121"` e `"inception_v3"`, `pretrained = true`, `trainable_layers = 80` (libera os últimos 80 módulos folha da CNN), `pooling = "avg"` (ou `"flatten"`), `hidden_size = 32` na BiLSTM, `attention = true` (ou `false` para experimentos sem atenção), `dense_units = [256, 128, 64, 32]` e `dropout = 0.25`.
+- **Modelo (`[model]`):** `backbone` selecionável entre os 3 originais (`"mobilenet_v2"`, `"densenet121"`, `"inception_v3"`) e 5 arquiteturas modernas/Vision Transformers (`"mobilenet_v3_large"`, `"efficientnet_v2_s"`, `"convnext_tiny"`, `"swin_t"`, `"vit_b_16"`), `pretrained = true`, `trainable_layers = 80` (libera os últimos 80 módulos folha), `pooling = "avg"` (ou `"flatten"`), `temporal_head = "bilstm"` (ou `"transformer"`), `hidden_size = 32`, `attention = true` (ou `false` para experimentos sem atenção), `dense_units = [256, 128, 64, 32]` e `dropout = 0.25`.
 - **Treinamento (`[training]`):** `epochs = 100`, `batch_size = 64` (ou `128`), `optimizer = "sgd"`, `learning_rate = 0.01`, `momentum = 0.9`, `ReduceLROnPlateau` monitorando `validation_loss` (`lr_factor = 0.6`, `lr_patience = 5`, `min_learning_rate = 0.00005` ou `0.0005`) e `EarlyStopping` monitorando `validation_accuracy` (`early_stopping_patience = 10`).
 
 O limiar de decisão (`evaluation.threshold = 0.5`) é fixado no arquivo antes do teste; não há calibração automática. Seeds registradas reduzem variação, mas não garantem determinismo entre GPUs, bibliotecas e sistemas.
@@ -78,16 +78,17 @@ Para incluir a compressão temporal do vídeo, instale **FFmpeg com suporte a li
 
 Os tempos são de processamento **offline** por sequência: não incluem aquisição de câmera ao vivo nem comprovam operação em tempo real. Perturbações são sintéticas; ruído independente entre quadros e máscaras de oclusão não demonstram desempenho em câmeras ou aglomerações reais. JPEG por quadro e recodificação H.264 são condições diferentes e não representam todos os codecs ou configurações de CFTV. A validade dos rótulos após as alterações deve ser inspecionada.
 
-## 6. Validação externa
+## 6. Validação externa (*cross-dataset*)
 
-Escolha uma base de outra origem, com licença e rótulos compatíveis, e organize os vídeos em diretórios `Violence` e `NonViolence`. Copie o TOML de base para um novo arquivo em `configs/`, ajustando `data.root` e `data.manifest`. Informe uma origem distinta e crie o manifesto:
+Para uma comparação externa justa com o RLVS (2.000 vídeos), o projeto já inclui a configuração `configs/rwf2000_external.toml` apontando para o benchmark **RWF-2000** (*Real-World Fighting Dataset*, `vulamnguyen/rwf2000` no Kaggle: 2.000 vídeos de 5 s capturados por câmeras de vigilância reais, divididos igualmente em `Fight` e `NonFight`). O inventário reconhece automaticamente diretórios `Fight`/`NonFight` (RWF-2000 e Hockey Fight) e `Normal`/`Violence` (SCVD), além de `Violence`/`NonViolence` (RLVS):
 
 ```bash
-uv run --no-sync python scripts/research.py prepare --config configs/external_dataset.toml --dataset-name EXTERNAL_NAME --source EXTERNAL_SOURCE
-uv run --no-sync python scripts/research.py evaluate --run-id RUN_ID --dataset-root PATH_TO_EXTERNAL_DATA --external-manifest PATH_TO_EXTERNAL_MANIFEST
+uv run --group data python scripts/download_dataset.py --dataset rwf2000
+uv run --no-sync python scripts/research.py prepare --config configs/rwf2000_external.toml
+uv run --no-sync python scripts/research.py evaluate --run-id RUN_ID --dataset-root data/raw/rwf2000-v1 --external-manifest data/processed/rwf2000-external.json
 ```
 
-O primeiro comando exige que o arquivo de configuração externo já tenha sido criado; os nomes em maiúsculas devem ser substituídos. A avaliação externa usa todos os registros desse manifesto, sem treinar nem ajustar o limiar. Ela recusa hashes idênticos aos da base original e fontes declaradas iguais. Isso não detecta reedições ou garante que uma base realmente seja independente ou nunca tenha sido usada no pré-treinamento: tais verificações são responsabilidade do protocolo. O notebook `04_evaluate_external.ipynb` usa a configuração externa já preparada.
+A avaliação externa usa todos os registros desse manifesto, sem treinar nem ajustar o limiar. Ela recusa hashes idênticos aos da base original e fontes declaradas iguais. Isso não detecta reedições ou garante que uma base nunca tenha sido compartilhada com o RLVS: tais verificações continuam sob responsabilidade do protocolo. O notebook `04_evaluate_external.ipynb` já aponta para `configs/rwf2000_external.toml`.
 
 ## 7. Verificação e limites
 

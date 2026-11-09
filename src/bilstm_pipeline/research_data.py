@@ -10,7 +10,26 @@ from .dataset import group_split, save_manifest, validate_records, validate_spli
 from .research_config import load_research_config, resolve_project_path
 
 _VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".mkv", ".mpeg", ".mpg"}
-_CLASS_NAMES = {"nonviolence": 0, "violence": 1}
+_CLASS_NAMES = {
+    "nonviolence": 0,
+    "nonviolent": 0,
+    "nonfight": 0,
+    "nonfights": 0,
+    "nofight": 0,
+    "nofights": 0,
+    "normal": 0,
+    "violence": 1,
+    "violent": 1,
+    "fight": 1,
+    "fights": 1,
+    "weaponizedviolence": 1,
+}
+_KNOWN_SOURCES = {
+    "mohamedmustafa/real-life-violence-situations-dataset": "RLVS",
+    "vulamnguyen/rwf2000": "RWF-2000",
+    "toluwaniaremu/smartcity-cctv-violence-detection-dataset-scvd": "SCVD",
+    "yassershrief/hockey-fight-vidoes": "HockeyFight",
+}
 
 
 def _hash_file(path: Path) -> str:
@@ -21,8 +40,15 @@ def _hash_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _normalize_class_token(value: str) -> str:
+    return value.casefold().replace(" ", "").replace("-", "").replace("_", "")
+
+
 def _label_from_path(path: Path) -> int:
-    labels = {_CLASS_NAMES[part.casefold().replace(" ", "")] for part in path.parts if part.casefold().replace(" ", "") in _CLASS_NAMES}
+    directory_parts = path.parts[:-1] or path.parts
+    labels = {_CLASS_NAMES[_normalize_class_token(part)] for part in directory_parts if _normalize_class_token(part) in _CLASS_NAMES}
+    if not labels:
+        labels = {_CLASS_NAMES[_normalize_class_token(part)] for part in path.parts if _normalize_class_token(part) in _CLASS_NAMES}
     if len(labels) != 1:
         raise ValueError(f"Cannot uniquely infer class from video path: {path}.")
     return labels.pop()
@@ -112,6 +138,22 @@ def _read_download_metadata(root: Path) -> dict | None:
     return {key: payload.get(key) for key in ("dataset", "version", "archive_sha256")}
 
 
+def _infer_dataset_identity(root: Path, download_meta: dict | None, dataset_name: str, source: str) -> tuple[str, str]:
+    """Infer external dataset name and source when defaults are used. / Infere nome e fonte do dataset externo quando padrões são usados."""
+    default_source = "mohamedmustafa/real-life-violence-situations-dataset"
+    if dataset_name != "RLVS" or source != default_source:
+        return dataset_name, source
+    if download_meta and isinstance(download_meta.get("dataset"), str):
+        detected_source = download_meta["dataset"]
+        return _KNOWN_SOURCES.get(detected_source, detected_source.split("/")[-1]), detected_source
+    folder = root.name.casefold()
+    for candidate_source, candidate_name in _KNOWN_SOURCES.items():
+        slug = candidate_source.split("/")[-1].casefold()
+        if candidate_name.casefold().replace("-", "") in folder.replace("-", "") or slug in folder:
+            return candidate_name, candidate_source
+    return dataset_name, source
+
+
 def prepare_dataset(config_path: str | Path, *, dataset_root: str | Path | None = None, manifest_path: str | Path | None = None, dataset_name: str = "RLVS", source: str = "mohamedmustafa/real-life-violence-situations-dataset", groups_path: str | Path | None = None) -> Path:
     """Build a stratified grouped manifest. / Cria manifesto estratificado por grupos."""
     config = load_research_config(config_path)
@@ -119,6 +161,8 @@ def prepare_dataset(config_path: str | Path, *, dataset_root: str | Path | None 
     target = resolve_project_path(manifest_path or config["data"]["manifest"])
     if target.exists():
         raise FileExistsError(f"Manifest already exists: {target}")
+    download_meta = _read_download_metadata(root)
+    dataset_name, source = _infer_dataset_identity(root, download_meta, dataset_name, source)
     records = inventory_videos(root)
     if groups_path is not None:
         groups_path = resolve_project_path(groups_path)
@@ -134,7 +178,7 @@ def prepare_dataset(config_path: str | Path, *, dataset_root: str | Path | None 
         "algorithm": "stratified_by_label_group",
         "seed": config["split"]["seed"],
         "proportions": list(fractions),
-        "download": _read_download_metadata(root),
+        "download": download_meta,
         "group_mapping_sha256": _hash_file(groups_path) if groups_path else None,
         "independence_limit": "Exact hashes checked; source-scene and near-duplicate groups require review.",
     }

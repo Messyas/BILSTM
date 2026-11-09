@@ -19,6 +19,7 @@ backbone = "mobilenet_v2"
 pretrained = true
 trainable_layers = 80
 pooling = "avg"
+temporal_head = "bilstm"
 hidden_size = 32
 attention = true
 dense_units = [256, 128, 64, 32]

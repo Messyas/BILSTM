@@ -42,6 +42,23 @@ class PreparationTests(unittest.TestCase):
             with self.assertRaises(FileExistsError):
                 prepare_dataset(config_path)
 
+            rwf_raw = root / "rwf2000-v1"
+            for split_dir in ("train", "val"):
+                for label, folder in enumerate(("NonFight", "Fight")):
+                    directory = rwf_raw / split_dir / folder
+                    directory.mkdir(parents=True)
+                    for index in range(3):
+                        (directory / f"{split_dir}-{index}.avi").write_bytes(f"rwf-{split_dir}-{label}-{index}".encode())
+            ext_config = load_research_config("configs/rwf2000_external.toml")
+            ext_config["data"] = {"root": str(rwf_raw), "manifest": str(root / "rwf2000.json")}
+            ext_config_path = root / "rwf_config.toml"
+            with ext_config_path.open("wb") as stream:
+                tomli_w.dump(ext_config, stream)
+            rwf_manifest = load_manifest(prepare_dataset(ext_config_path))
+            self.assertEqual(rwf_manifest["dataset_name"], "RWF-2000")
+            self.assertEqual(rwf_manifest["source"], "vulamnguyen/rwf2000")
+            self.assertEqual(len(rwf_manifest["records"]), 12)
+
     def test_reviewed_groups_are_kept_together_and_mapping_is_complete(self):
         from bilstm_pipeline.research_data import _apply_groups, inventory_videos
         from bilstm_pipeline.dataset import validate_split
@@ -108,7 +125,16 @@ class ResearchPipelineTests(unittest.TestCase):
             self.assertEqual([round(float(frame.mean()) * 255) for frame in frames], [0, 0, 40, 40, 80, 120])
             self.assertEqual(tuple(video_tensor(frames).shape), (6, 3, 32, 32))
             self.assertEqual(jpeg_compression(frames, quality=50).shape, frames.shape)
-        for backbone in ("mobilenet_v2", "densenet121", "inception_v3"):
+        for backbone in (
+            "mobilenet_v2",
+            "mobilenet_v3_large",
+            "densenet121",
+            "inception_v3",
+            "efficientnet_v2_s",
+            "convnext_tiny",
+            "swin_t",
+            "vit_b_16",
+        ):
             for attention in (True, False):
                 model = ConflictModel(backbone=backbone, hidden_size=4, dense_units=(8, 4), dropout=0.0, pretrained=False, attention=attention).eval()
                 with torch.inference_mode():
@@ -117,6 +143,11 @@ class ResearchPipelineTests(unittest.TestCase):
                     repeated = model(torch.zeros((1, 2, 3, 32, 32)))
                 self.assertEqual(tuple(logits.shape), (1, 2))
                 self.assertTrue(torch.equal(logits, repeated))
+        for attention in (True, False):
+            tf_model = ConflictModel(backbone="swin_t", temporal_head="transformer", hidden_size=4, dense_units=(8, 4), dropout=0.0, pretrained=False, attention=attention).eval()
+            with torch.inference_mode():
+                tf_logits = tf_model(torch.zeros((1, 2, 3, 32, 32)))
+            self.assertEqual(tuple(tf_logits.shape), (1, 2))
         densenet_flat = ConflictModel(backbone="densenet121", pooling="flatten", hidden_size=32, dense_units=(256, 128, 64, 32), pretrained=False, frames=15, width=100, height=100)
         self.assertEqual(densenet_flat.recurrent.input_size, 9216)
         self.assertEqual(sum(p.numel() for p in densenet_flat.recurrent.parameters()), 2368000)
