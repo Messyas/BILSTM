@@ -116,6 +116,6 @@ Dados e resultados em `data/` e `output/` são ignorados pelo Git. Versione as c
 
 ## 6. Escopo e dependências pendentes
 
-O plano atual prioriza MobileNetV2 + BiLSTM com atenção, métricas expandidas, robustez e validação externa. A base RLVS foi informada pelo pesquisador e pode ser baixada. O fluxo PyTorch disponível é uma reconstrução proposta; a versão original, o código, os pesos, os logs e o framework anterior ainda precisam ser confirmados.
+O plano atual prioriza MobileNetV2 + BiLSTM com atenção (permitindo alternar para DenseNet121 ou InceptionV3 e ligar/desligar a atenção), métricas expandidas, robustez e validação externa. A base RLVS e os notebooks originais de Erick Farias foram recebidos e seus parâmetros foram incorporados a `configs/rlvs_baseline.toml` e ao pacote Python; os arquivos de pesos `.keras` originais e o mapeamento de cenas independentes ainda precisam ser confirmados.
 
 A [arquitetura](plano-de-implementacao/ARQUITETURA.md) detalha a API e os padrões de figuras. O [guia de componentes](plano-de-implementacao/COMPONENTES.md) descreve as funções reutilizáveis e seus limites; as etapas científicas seguem no backlog.

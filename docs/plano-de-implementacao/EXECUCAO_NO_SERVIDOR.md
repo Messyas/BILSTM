@@ -1,6 +1,6 @@
 # Execução dos experimentos no servidor
 
-Este fluxo prepara o RLVS, treina e avalia uma **reconstrução proposta** MobileNetV2 + BiLSTM + atenção em PyTorch. O artigo informa a combinação de componentes e entrada de 15 quadros RGB de 100 × 100; como os pesos, o código e detalhes do protocolo original não foram recebidos, esta implementação **não é uma reprodução comprovada**. Não há resultados científicos incluídos no repositório.
+Este fluxo prepara o RLVS, treina e avalia a arquitetura CNN + BiLSTM + atenção alinhada aos notebooks originais enviados por Erick Farias (`FEATURE_EXTRACTION.ipynb` e `parametro_alterado_definitivo_densenet121_att(1).ipynb`). O código original foi escrito em TensorFlow/Keras para TPU no Google Colab; esta implementação adapta a arquitetura, a extração de sequências matriciais de 15 quadros RGB de 100 × 100 e os hiperparâmetros de treinamento para o pipeline reproduzível em PyTorch, pois os arquivos de pesos `.keras` treinados originalmente não foram anexados. Não há resultados científicos pré-calculados incluídos no repositório.
 
 ## 1. Ambiente e dados
 
@@ -17,7 +17,14 @@ Configure o acesso ao Kaggle e baixe o RLVS como explicado no [guia de uso](../G
 
 ## 2. Configuração
 
-Revise `configs/rlvs_baseline.toml` antes da execução. Os valores de épocas, lote, taxa de aprendizado, dropout, unidades, limiar, split e perturbações são parâmetros explícitos da reconstrução, não valores confirmados do experimento original. O limiar é fixado no arquivo antes do teste; não há calibração automática. Seeds registradas reduzem variação, mas não garantem determinismo entre GPUs, bibliotecas e sistemas.
+Revise `configs/rlvs_baseline.toml` antes da execução. Os parâmetros reproduzem a configuração identificada nos notebooks originais de Erick Farias:
+
+- **Divisão (`[split]`):** `train = 0.64`, `validation = 0.16`, `test = 0.20` e `seed = 42` (nos 2000 vídeos do RLVS, equivale a 1280 vídeos de treino, 320 de validação e 400 de teste, obtida originalmente com `test_size = 0.20` e `validation_split = 0.20`).
+- **Sequência de vídeo (`[video]`):** `frames = 15`, `width = 100`, `height = 100`, amostrados com passo inteiro `total_frames // 15` e normalizados em `[0, 1]` (`/ 255`).
+- **Modelo (`[model]`):** `backbone` selecionável entre `"mobilenet_v2"` (padrão), `"densenet121"` e `"inception_v3"`, `pretrained = true`, `trainable_layers = 80` (libera os últimos 80 módulos folha da CNN), `pooling = "avg"` (ou `"flatten"`), `hidden_size = 32` na BiLSTM, `attention = true` (ou `false` para experimentos sem atenção), `dense_units = [256, 128, 64, 32]` e `dropout = 0.25`.
+- **Treinamento (`[training]`):** `epochs = 100`, `batch_size = 64` (ou `128`), `optimizer = "sgd"`, `learning_rate = 0.01`, `momentum = 0.9`, `ReduceLROnPlateau` monitorando `validation_loss` (`lr_factor = 0.6`, `lr_patience = 5`, `min_learning_rate = 0.00005` ou `0.0005`) e `EarlyStopping` monitorando `validation_accuracy` (`early_stopping_patience = 10`).
+
+O limiar de decisão (`evaluation.threshold = 0.5`) é fixado no arquivo antes do teste; não há calibração automática. Seeds registradas reduzem variação, mas não garantem determinismo entre GPUs, bibliotecas e sistemas.
 
 O inventário reconhece arquivos de vídeo em diretórios chamados `Violence` e `NonViolence` (ignorando maiúsculas e espaços). Por padrão ele agrupa por SHA-256 e divide cada classe por grupos em treino, validação e teste, sem compartilhar um arquivo idêntico entre partições. Vídeos reeditados ou gravados na mesma cena podem ter hashes diferentes: revise essas relações e a licença antes da análise científica. A proporção final pode variar por causa do número de grupos. A divisão padrão não garante independência por cena ou canal de origem.
 
@@ -39,7 +46,7 @@ Violence/video2.mp4,scene-1
 
 O exemplo é ilustrativo e não representa um mapeamento completo. Com o CSV completo preparado e revisado, informe `--groups caminho/grupos.csv` ao comando `prepare`. O manifesto registra o hash do CSV e os grupos; IDs ausentes ou extras, amostras repetidas e arquivos idênticos em grupos distintos são recusados. O algoritmo atual exige que todos os vídeos de um grupo tenham a mesma classe e pelo menos três grupos por classe; se uma cena contiver ambas as classes, será necessário definir e implementar outro protocolo de divisão. Não se deve separar a cena artificialmente para contornar essa restrição. O CSV só protege contra relações nele identificadas; a equipe deve revisar sua completude.
 
-A leitura faz duas passagens sequenciais pelo vídeo: conta os quadros decodificáveis e retém apenas os 15 selecionados uniformemente. Vídeos mais curtos repetem índices. Isso limita a memória dos quadros armazenados, mas aumenta o trabalho de decodificação; cada quadro original e os lotes do modelo ainda ocupam memória. É uma escolha desta implementação e precisa ser comparada ao pré-processamento original.
+A leitura faz duas passagens sequenciais pelo vídeo: conta os quadros decodificáveis e retém os 15 selecionados pelo intervalo inteiro `total_frames // 15` (ou espaçamento uniforme se o vídeo tiver menos de 15 quadros), convertendo de BGR para RGB, redimensionando para 100 × 100 e escalando em `[0, 1]`. No notebook original de extração (`FEATURE_EXTRACTION.ipynb`), havia aumentos aleatórios (`imgaug` de brilho, zoom e desfoque gaussiano) aplicados durante a extração de todos os vídeos antes da divisão; neste pipeline a extração de treino, validação e teste é determinística e sem aumento prévio ao split para preservar a integridade da avaliação, mantendo as perturbações isoladas na etapa de robustez.
 
 **Limite temporal:** a amostragem usa o vídeo inteiro e a BiLSTM bidirecional usa os quadros posteriores da sequência. A previsão é uma classificação offline do clipe completo, não uma detecção causal no instante de cada quadro nem um teste de antecipação. Cada chamada cria o estado recorrente da sequência sem carregá-lo para o próximo vídeo. Para aplicação ao vivo seriam necessários janelas disponíveis até o instante de decisão, regras de agregação e medição do atraso de aquisição.
 
@@ -49,7 +56,13 @@ A leitura faz duas passagens sequenciais pelo vídeo: conta os quadros decodific
 uv run --no-sync python scripts/research.py train --config configs/rlvs_baseline.toml
 ```
 
-O comando informa um ID como `rlvs-...`. Para o mesmo fluxo no Jupyter, use `02_train_baseline.ipynb` **no servidor**. O treino confere os hashes do manifesto, usa apenas treino/validação e seleciona `best.pt` pela menor perda de validação. Salva configuração efetiva, manifesto dos dados, histórico, gráfico, ambiente, revisão Git disponível e estado da execução em `output/<RUN_ID>/`. O conjunto de teste não é usado para selecionar o checkpoint. Uma falha deixa o estado `failed` no manifesto, em vez de marcar uma execução parcial como concluída.
+Para variar o modelo ou hiperparâmetros (como nos 12 experimentos da Tabela 1 do artigo original), edite o TOML ou informe opções explícitas na linha de comando, por exemplo:
+
+```bash
+uv run --no-sync python scripts/research.py train --config configs/rlvs_baseline.toml --backbone densenet121 --attention --batch-size 64 --min-learning-rate 0.00005
+```
+
+O comando informa um ID como `rlvs-...`. Para o mesmo fluxo no Jupyter, use `02_train_baseline.ipynb` **no servidor**. O treino confere os hashes do manifesto, converte e armazena em cache as sequências matriciais de treino e validação na primeira época, aplica `ReduceLROnPlateau` na perda de validação e `EarlyStopping` com seleção de `best.pt` pela maior acurácia de validação (desempatando pela menor perda de validação). Salva configuração efetiva, manifesto dos dados, histórico de perda/acurácia/taxa de aprendizado, gráfico, tempo de treinamento, ambiente, revisão Git disponível e estado da execução em `output/<RUN_ID>/`. O conjunto de teste não é usado para selecionar o checkpoint. Uma falha deixa o estado `failed` no manifesto, em vez de marcar uma execução parcial como concluída.
 
 ## 5. Avaliar e medir robustez
 

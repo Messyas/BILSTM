@@ -210,5 +210,5 @@ def decode_video(path: Path, *, frames: int, width: int, height: int) -> np.ndar
     count = _count_video_frames(path)
     if not count:
         raise ValueError(f"Video contains no decodable frames: {path}")
-    indices = np.linspace(0, count - 1, frames).astype(int)
+    indices = np.arange(frames, dtype=int) * (count // frames) if count >= frames else np.linspace(0, count - 1, frames).astype(int)
     return _sample_video_frames(path, indices, count, frames=frames, width=width, height=height)

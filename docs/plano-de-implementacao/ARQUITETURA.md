@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Organizar experimentos reproduziveis de classificacao de videos do RLVS. Os notebooks explicam cada etapa, chamam uma API unica e apresentam parametros e resultados. O fluxo implementado usa uma reconstrucao proposta MobileNetV2 + BiLSTM + atencao; a equivalencia com o codigo e o checkpoint originais nao esta confirmada.
+Organizar experimentos reproduziveis de classificacao de videos do RLVS. Os notebooks explicam cada etapa, chamam uma API unica e apresentam parametros e resultados. O fluxo implementado reproduz em PyTorch a arquitetura e os parametros dos notebooks originais enviados por Erick Farias (`MobileNetV2`, `DenseNet121` ou `InceptionV3` + `BiLSTM` + atencao opcional, com `SGD`, `ReduceLROnPlateau` e `EarlyStopping`); os pesos `.keras` originais nao foram recebidos.
 
 ## Organizacao
 

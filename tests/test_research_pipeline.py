@@ -108,13 +108,22 @@ class ResearchPipelineTests(unittest.TestCase):
             self.assertEqual([round(float(frame.mean()) * 255) for frame in frames], [0, 0, 40, 40, 80, 120])
             self.assertEqual(tuple(video_tensor(frames).shape), (6, 3, 32, 32))
             self.assertEqual(jpeg_compression(frames, quality=50).shape, frames.shape)
-        model = ConflictModel(hidden_size=4, dropout=0.0, pretrained=False).eval()
-        with torch.inference_mode():
-            logits = model(torch.zeros((1, 2, 3, 32, 32)))
-            model(torch.ones((1, 2, 3, 32, 32)))
-            repeated = model(torch.zeros((1, 2, 3, 32, 32)))
-        self.assertEqual(tuple(logits.shape), (1, 2))
-        self.assertTrue(torch.equal(logits, repeated))
+        for backbone in ("mobilenet_v2", "densenet121", "inception_v3"):
+            for attention in (True, False):
+                model = ConflictModel(backbone=backbone, hidden_size=4, dense_units=(8, 4), dropout=0.0, pretrained=False, attention=attention).eval()
+                with torch.inference_mode():
+                    logits = model(torch.zeros((1, 2, 3, 32, 32)))
+                    model(torch.ones((1, 2, 3, 32, 32)))
+                    repeated = model(torch.zeros((1, 2, 3, 32, 32)))
+                self.assertEqual(tuple(logits.shape), (1, 2))
+                self.assertTrue(torch.equal(logits, repeated))
+        densenet_flat = ConflictModel(backbone="densenet121", pooling="flatten", hidden_size=32, dense_units=(256, 128, 64, 32), pretrained=False, frames=15, width=100, height=100)
+        self.assertEqual(densenet_flat.recurrent.input_size, 9216)
+        self.assertEqual(sum(p.numel() for p in densenet_flat.recurrent.parameters()), 2368000)
+        self.assertIsNotNone(densenet_flat.attention)
+        assert densenet_flat.attention is not None
+        self.assertEqual(sum(p.numel() for p in densenet_flat.attention.parameters()), 79)
+        self.assertEqual(sum(p.numel() for p in densenet_flat.classifier.parameters()), 59938)
 
     def test_decode_releases_capture_when_second_pass_fails(self):
         from bilstm_pipeline.research_data import decode_video
@@ -153,12 +162,12 @@ class ResearchPipelineTests(unittest.TestCase):
             with (root / "effective_config.toml").open("wb") as stream:
                 tomli_w.dump(config, stream)
             (root / "manifest.json").write_text('{"status":"completed","type":"proposed_reconstruction"}', encoding="utf-8")
-            original = ConflictModel(**config["model"])
+            original = ConflictModel(**config["model"], **config["video"])
             torch.save({"model_state": original.state_dict()}, root / "best.pt")
             with patch("bilstm_pipeline.research_evaluation.run_path", return_value=root):
                 _, _, device, loaded = _load_run("example", None)
             self.assertEqual(device.type, "cpu")
-            self.assertTrue(torch.equal(original.state_dict()["classifier.1.weight"], loaded.state_dict()["classifier.1.weight"]))
+            self.assertTrue(torch.equal(original.state_dict()["classifier.0.weight"], loaded.state_dict()["classifier.0.weight"]))
 
     def test_orchestration_with_mocked_training_and_inference(self):
         import torch
@@ -182,13 +191,16 @@ class ResearchPipelineTests(unittest.TestCase):
                 tomli_w.dump(config, stream)
             prepare_dataset(config_path)
             run_root = root / "runs"
-            with patch("bilstm_pipeline.research_training.run_path", side_effect=lambda run_id: run_root / run_id), patch("bilstm_pipeline.research_training.ConflictModel", return_value=torch.nn.Linear(1, 2)), patch("bilstm_pipeline.research_training._run_epoch", side_effect=[0.8, 0.5]), patch("bilstm_pipeline.research_training._device_metadata", return_value={"device": "mock"}):
-                run_id = train_model(config_path)
+            with patch("bilstm_pipeline.research_training.run_path", side_effect=lambda run_id: run_root / run_id), patch("bilstm_pipeline.research_training.ConflictModel", return_value=torch.nn.Linear(1, 2)), patch("bilstm_pipeline.research_training._run_epoch", side_effect=[(0.8, 0.6), (0.5, 0.9)]), patch("bilstm_pipeline.research_training._device_metadata", return_value={"device": "mock"}):
+                run_id = train_model(config_path, backbone="densenet121", attention=False, batch_size=64, min_learning_rate=0.00005)
             target = run_root / run_id
             status = json.loads((target / "manifest.json").read_text(encoding="utf-8"))
             self.assertEqual(status["status"], "completed")
+            self.assertAlmostEqual(status["best_validation_accuracy"], 0.9)
             self.assertTrue((target / "best.pt").is_file())
             saved_config = load_research_config(target / "effective_config.toml")
+            self.assertEqual(saved_config["model"]["backbone"], "densenet121")
+            self.assertFalse(saved_config["model"]["attention"])
             fake_frames = np.full((15, 10, 10, 3), 0.5, dtype=np.float32)
             with patch("bilstm_pipeline.research_evaluation._load_run", return_value=(target, saved_config, torch.device("cpu"), object())), patch("bilstm_pipeline.research_evaluation.decode_video", return_value=fake_frames), patch("bilstm_pipeline.research_evaluation._predict", return_value=(0.5, 0.01, 0.02)):
                 evaluation = evaluate_model(run_id, robustness=True)

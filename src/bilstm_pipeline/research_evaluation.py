@@ -38,7 +38,7 @@ def _load_run(run_id: str, device: str | None):
             raise ValueError("device must be cuda, cpu or auto.")
         config["training"]["device"] = device
     selected = select_device(config["training"]["device"])
-    model_config = dict(config["model"], pretrained=False)
+    model_config = dict(config["model"], pretrained=False, **config["video"])
     model = ConflictModel(**model_config).to(selected)
     checkpoint = torch.load(target / "best.pt", map_location=selected, weights_only=True)
     model.load_state_dict(checkpoint["model_state"])

@@ -9,6 +9,7 @@ import platform
 import random
 import shutil
 import subprocess
+import time
 from uuid import uuid4
 from typing import Any
 
@@ -20,12 +21,10 @@ import tomli_w
 
 from .execution import run_path, write_json
 from .plots import plot_training_history
-from .research_config import load_research_config, resolve_project_path
+from .research_config import load_research_config, resolve_project_path, validate_research_config
 from .research_data import _hash_file, decode_video, load_manifest, video_path
 from .research_model import ConflictModel
 
-_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
-_STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 _RUN_MANIFEST_FILENAME = "manifest.json"
 
 
@@ -50,24 +49,26 @@ def set_seed(seed: int) -> None:
 
 
 def video_tensor(frames: np.ndarray) -> torch.Tensor:
-    """Normalize RGB frames. / Normaliza quadros RGB."""
-    normalized = (frames - _MEAN) / _STD
-    return torch.from_numpy(normalized.transpose(0, 3, 1, 2).copy())
+    """Convert [0, 1] RGB frames to channels-first tensor. / Converte quadros RGB em [0, 1] para tensor."""
+    return torch.from_numpy(np.asarray(frames, dtype=np.float32).transpose(0, 3, 1, 2).copy())
 
 
 class VideoDataset(Dataset):
-    """Read one sequence per video. / Lê uma sequência por vídeo."""
+    """Read and cache one sequence matrix per video. / Lê e armazena em cache uma matriz sequencial por vídeo."""
 
     def __init__(self, root: Path, records: list[dict], video_config: dict):
         self.root, self.records, self.video_config = root, records, video_config
+        self._cache: dict[int, tuple[torch.Tensor, int]] = {}
 
     def __len__(self):
         return len(self.records)
 
     def __getitem__(self, index):
-        record = self.records[index]
-        frames = decode_video(video_path(self.root, record), **self.video_config)
-        return video_tensor(frames), int(record["label"])
+        if index not in self._cache:
+            record = self.records[index]
+            frames = decode_video(video_path(self.root, record), **self.video_config)
+            self._cache[index] = (video_tensor(frames), int(record["label"]))
+        return self._cache[index]
 
 
 def _device_metadata(device: torch.device) -> dict:
@@ -79,24 +80,26 @@ def _device_metadata(device: torch.device) -> dict:
     return {"framework": "pytorch", "python": platform.python_version(), "platform": platform.platform(), "torch": torch.__version__, "torchvision": version("torchvision"), "opencv": version("opencv-python-headless"), "cuda_runtime": getattr(getattr(torch, "version", None), "cuda", None), "device": str(device), "gpu": torch.cuda.get_device_name(device) if device.type == "cuda" else None, "git_revision": revision, "uncommitted_changes": dirty}
 
 
-def _run_epoch(model, loader, device, loss_fn, optimizer=None) -> float:
+def _run_epoch(model, loader, device, loss_fn, optimizer=None) -> tuple[float, float]:
     is_training = optimizer is not None
     model.train(is_training)
-    total_loss, total_samples = 0.0, 0
+    total_loss, total_correct, total_samples = 0.0, 0, 0
     with torch.set_grad_enabled(is_training):
         for videos, labels in loader:
             videos, labels = videos.to(device), labels.to(device)
             if is_training:
                 optimizer.zero_grad(set_to_none=True)
-            loss = loss_fn(model(videos), labels)
+            logits = model(videos)
+            loss = loss_fn(logits, labels)
             if is_training:
                 loss.backward()
                 optimizer.step()
             total_loss += float(loss.item()) * len(labels)
+            total_correct += int((logits.argmax(dim=1) == labels).sum().item())
             total_samples += len(labels)
     if not total_samples:
         raise ValueError("Training and validation splits must not be empty.")
-    return total_loss / total_samples
+    return total_loss / total_samples, total_correct / total_samples
 
 
 def _training_records(root: Path, manifest_file: Path) -> tuple[dict, list[dict], list[dict]]:
@@ -132,52 +135,135 @@ def _create_loaders(root: Path, config: dict, train_records: list[dict], val_rec
     return train_loader, val_loader
 
 
-def _train_epochs(model, train_loader, val_loader, device: torch.device, config: dict, target: Path) -> tuple[list[dict], float]:
-    """Train and checkpoint the best validation epoch. / Treina e salva a melhor epoca de validacao."""
-    optimizer = torch.optim.Adam(
-        model.parameters(),
-        lr=config["training"]["learning_rate"],
-        weight_decay=config["training"]["weight_decay"],
+def _build_optimizer(model: nn.Module, training_config: dict) -> torch.optim.Optimizer:
+    """Create SGD or Adam optimizer. / Cria otimizador SGD ou Adam."""
+    params = [param for param in model.parameters() if param.requires_grad] or list(model.parameters())
+    if training_config["optimizer"] == "sgd":
+        return torch.optim.SGD(
+            params,
+            lr=training_config["learning_rate"],
+            momentum=training_config["momentum"],
+            weight_decay=training_config["weight_decay"],
+        )
+    return torch.optim.Adam(
+        params,
+        lr=training_config["learning_rate"],
+        weight_decay=training_config["weight_decay"],
+    )
+
+
+def _unpack_epoch_metrics(metrics: tuple[float, float] | float) -> tuple[float, float]:
+    """Normalize epoch output. / Normaliza saida da epoca."""
+    if isinstance(metrics, tuple):
+        return float(metrics[0]), float(metrics[1])
+    return float(metrics), 0.0
+
+
+def _train_epochs(model, train_loader, val_loader, device: torch.device, config: dict, target: Path) -> tuple[list[dict], float, float]:
+    """Train with ReduceLROnPlateau and EarlyStopping. / Treina com ReduceLROnPlateau e EarlyStopping."""
+    training = config["training"]
+    optimizer = _build_optimizer(model, training)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer,
+        mode="min",
+        factor=training["lr_factor"],
+        patience=training["lr_patience"],
+        min_lr=training["min_learning_rate"],
     )
     loss_fn = nn.CrossEntropyLoss()
-    history, best_loss = [], float("inf")
-    for epoch in range(1, config["training"]["epochs"] + 1):
-        train_loss = _run_epoch(model, train_loader, device, loss_fn, optimizer)
-        val_loss = _run_epoch(model, val_loader, device, loss_fn)
+    history, best_loss, best_acc, stale_epochs = [], float("inf"), -1.0, 0
+    for epoch in range(1, training["epochs"] + 1):
+        current_lr = float(optimizer.param_groups[0]["lr"])
+        train_loss, train_acc = _unpack_epoch_metrics(_run_epoch(model, train_loader, device, loss_fn, optimizer))
+        val_loss, val_acc = _unpack_epoch_metrics(_run_epoch(model, val_loader, device, loss_fn))
         if not math.isfinite(train_loss) or not math.isfinite(val_loss):
             raise ValueError("Training or validation loss is not finite.")
-        history.append({"epoch": epoch, "train_loss": train_loss, "validation_loss": val_loss})
+        history.append({
+            "epoch": epoch,
+            "train_loss": train_loss,
+            "validation_loss": val_loss,
+            "train_accuracy": train_acc,
+            "validation_accuracy": val_acc,
+            "learning_rate": current_lr,
+        })
         write_json(target / "history.json", {"epochs": history})
-        line = f"Epoch {epoch}: train_loss={train_loss:.6f}, validation_loss={val_loss:.6f}"
+        line = f"Epoch {epoch}: train_loss={train_loss:.6f}, train_acc={train_acc:.4f}, validation_loss={val_loss:.6f}, validation_acc={val_acc:.4f}, lr={current_lr:.6g}"
         print(line, flush=True)
         with (target / "training.log").open("a", encoding="utf-8") as stream:
             stream.write(line + "\n")
-        if val_loss < best_loss:
-            best_loss = val_loss
-            torch.save({"model_state": model.state_dict(), "epoch": epoch, "validation_loss": val_loss}, target / "best.pt")
-    return history, best_loss
+        if val_acc > best_acc or (math.isclose(val_acc, best_acc) and val_loss < best_loss):
+            best_acc, best_loss, stale_epochs = val_acc, val_loss, 0
+            torch.save({"model_state": model.state_dict(), "epoch": epoch, "validation_loss": val_loss, "validation_accuracy": val_acc}, target / "best.pt")
+        else:
+            stale_epochs += 1
+        scheduler.step(val_loss)
+        if stale_epochs >= training["early_stopping_patience"]:
+            break
+    return history, best_loss, best_acc
 
 
-def _finish_run(target: Path, status: dict, *, best_loss: float | None = None, error: Exception | None = None) -> None:
+def _finish_run(target: Path, status: dict, *, best_loss: float | None = None, best_acc: float | None = None, elapsed_seconds: float | None = None, error: Exception | None = None) -> None:
     """Record run completion or failure. / Registra conclusao ou falha da execucao."""
     status.update(status="failed" if error else "completed", finished_utc=datetime.now(timezone.utc).isoformat())
     if error is not None:
         status["error_type"] = type(error).__name__
     if best_loss is not None:
         status["best_validation_loss"] = best_loss
+    if best_acc is not None:
+        status["best_validation_accuracy"] = best_acc
+    if elapsed_seconds is not None:
+        status["training_time_seconds"] = round(elapsed_seconds, 2)
     write_json(target / _RUN_MANIFEST_FILENAME, status)
     if error is not None:
         with (target / "training.log").open("a", encoding="utf-8") as stream:
             stream.write(f"Failed: {type(error).__name__}: {error}\n")
 
 
-def train_model(config_path: str | Path, *, dataset_root: str | Path | None = None, manifest_path: str | Path | None = None, seed: int | None = None, device: str | None = None) -> str:
+def _apply_overrides(config: dict, *, device: str | None, backbone: str | None, attention: bool | None, batch_size: int | None, learning_rate: float | None, min_learning_rate: float | None, epochs: int | None) -> dict:
+    """Apply explicit experiment overrides and revalidate. / Aplica substituicoes explicitas e revalida."""
+    if device is not None:
+        config["training"]["device"] = device
+    if backbone is not None:
+        config["model"]["backbone"] = backbone
+    if attention is not None:
+        config["model"]["attention"] = attention
+    if batch_size is not None:
+        config["training"]["batch_size"] = batch_size
+    if learning_rate is not None:
+        config["training"]["learning_rate"] = learning_rate
+    if min_learning_rate is not None:
+        config["training"]["min_learning_rate"] = min_learning_rate
+    if epochs is not None:
+        config["training"]["epochs"] = epochs
+    return validate_research_config(config)
+
+
+def train_model(
+    config_path: str | Path,
+    *,
+    dataset_root: str | Path | None = None,
+    manifest_path: str | Path | None = None,
+    seed: int | None = None,
+    device: str | None = None,
+    backbone: str | None = None,
+    attention: bool | None = None,
+    batch_size: int | None = None,
+    learning_rate: float | None = None,
+    min_learning_rate: float | None = None,
+    epochs: int | None = None,
+) -> str:
     """Train using training and validation only. / Treina usando apenas treino e validacao."""
     config = load_research_config(config_path, seed=seed)
-    if device is not None:
-        if device not in ("cuda", "cpu", "auto"):
-            raise ValueError("device must be cuda, cpu or auto.")
-        config["training"]["device"] = device
+    config = _apply_overrides(
+        config,
+        device=device,
+        backbone=backbone,
+        attention=attention,
+        batch_size=batch_size,
+        learning_rate=learning_rate,
+        min_learning_rate=min_learning_rate,
+        epochs=epochs,
+    )
     root = resolve_project_path(dataset_root or config["data"]["root"])
     manifest_file = resolve_project_path(manifest_path or config["data"]["manifest"])
     config["data"].update(root=str(root), manifest=str(manifest_file))
@@ -189,14 +275,15 @@ def train_model(config_path: str | Path, *, dataset_root: str | Path | None = No
     target.mkdir(parents=True, exist_ok=False)
     print(f"Run ID: {run_id}", flush=True)
     status: dict[str, Any] = {"id": run_id, "status": "running", "type": "proposed_reconstruction", "dataset": manifest["dataset_name"], "dataset_manifest_sha256": _hash_file(manifest_file), "started_utc": datetime.now(timezone.utc).isoformat()}
+    start_time = time.perf_counter()
     try:
         _write_initial_artifacts(target, status, config, manifest_file, selected)
-        model = ConflictModel(**config["model"]).to(selected)
+        model = ConflictModel(**config["model"], **config["video"]).to(selected)
         train_loader, val_loader = _create_loaders(root, config, train_records, val_records)
-        history, best_loss = _train_epochs(model, train_loader, val_loader, selected, config, target)
+        history, best_loss, best_acc = _train_epochs(model, train_loader, val_loader, selected, config, target)
         plot_training_history(history, target / "figures")
-        _finish_run(target, status, best_loss=best_loss)
+        _finish_run(target, status, best_loss=best_loss, best_acc=best_acc, elapsed_seconds=time.perf_counter() - start_time)
     except Exception as error:
-        _finish_run(target, status, error=error)
+        _finish_run(target, status, elapsed_seconds=time.perf_counter() - start_time, error=error)
         raise
     return run_id

@@ -21,10 +21,31 @@ def show_research_dataset(config: str) -> None:
     display(manifest["split_metadata"])
 
 
-def train_research(config: str, *, seed: int | None = None, device: str | None = None) -> str:
-    """Train the proposed model. / Treina o modelo proposto."""
+def train_research(
+    config: str,
+    *,
+    seed: int | None = None,
+    device: str | None = None,
+    backbone: str | None = None,
+    attention: bool | None = None,
+    batch_size: int | None = None,
+    learning_rate: float | None = None,
+    min_learning_rate: float | None = None,
+    epochs: int | None = None,
+) -> str:
+    """Train the configured model. / Treina o modelo configurado."""
     from .research_training import train_model
-    return train_model(config, seed=seed, device=device)
+    return train_model(
+        config,
+        seed=seed,
+        device=device,
+        backbone=backbone,
+        attention=attention,
+        batch_size=batch_size,
+        learning_rate=learning_rate,
+        min_learning_rate=min_learning_rate,
+        epochs=epochs,
+    )
 
 
 def show_research_training(run_id: str) -> None:

@@ -96,18 +96,28 @@ def plot_robustness_comparison(perturbations: dict, output_dir: str | Path, *, t
 
 
 def plot_training_history(history: list[dict], output_dir: str | Path) -> None:
-    """Plot train and validation loss. / Desenha perda de treino e validação."""
+    """Plot train and validation loss and accuracy. / Desenha perda e acurácia de treino e validação."""
     if not history:
         raise ValueError("Training history cannot be empty.")
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    has_accuracy = all("train_accuracy" in item and "validation_accuracy" in item for item in history)
     with mpl.rc_context(STYLE):
-        figure, axes = plt.subplots(figsize=(17 / 2.54, 9 / 2.54), layout="constrained")
+        figure, axes = plt.subplots(1, 2 if has_accuracy else 1, figsize=(17 / 2.54, 9 / 2.54), layout="constrained")
         try:
-            axes.plot([item["epoch"] for item in history], [item["train_loss"] for item in history], marker="o", label="Training")
-            axes.plot([item["epoch"] for item in history], [item["validation_loss"] for item in history], marker="s", label="Validation")
-            axes.set(xlabel="Epoch", ylabel="Cross-entropy loss", title="Training history")
-            axes.legend()
+            loss_ax = axes[0] if has_accuracy else axes
+            epochs = [item["epoch"] for item in history]
+            loss_ax.plot(epochs, [item["train_loss"] for item in history], marker="o", label="Training")
+            loss_ax.plot(epochs, [item["validation_loss"] for item in history], marker="s", label="Validation")
+            loss_ax.set(xlabel="Epoch", ylabel="Cross-entropy loss", title="Training loss")
+            loss_ax.legend()
+            if has_accuracy:
+                acc_ax = axes[1]
+                acc_ax.plot(epochs, [item["train_accuracy"] for item in history], marker="o", label="Training")
+                acc_ax.plot(epochs, [item["validation_accuracy"] for item in history], marker="s", label="Validation")
+                acc_ax.set_ylim(0, 1.05)
+                acc_ax.set(xlabel="Epoch", ylabel="Accuracy (0–1)", title="Training accuracy")
+                acc_ax.legend()
             figure.savefig(output_dir / "training_history.pdf")
             figure.savefig(output_dir / "training_history.png", dpi=300)
         finally:
