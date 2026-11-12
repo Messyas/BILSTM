@@ -27,9 +27,40 @@ uv run --group data python scripts/download_dataset.py --dataset rwf2000
 
 O primeiro comando baixa a versão 1 do RLVS em `data/raw/rlvs-v1/`; o segundo baixa o benchmark externo **RWF-2000** (`vulamnguyen/rwf2000`, 2.000 vídeos de câmeras de vigilância reais em `Fight`/`NonFight`) em `data/raw/rwf2000-v1/` para avaliação *cross-dataset* justa (`configs/rwf2000_external.toml`). Também há atalhos para `scvd` (`toluwaniaremu/smartcity-cctv-violence-detection-dataset-scvd`) e `hockey` (`yassershrief/hockey-fight-vidoes`). Os vídeos ficam fora do Git. A versão e as partições usadas no trabalho anterior ainda precisam ser confirmadas.
 
-### Executar no servidor
+### Executar o pipeline (linha de comando ou notebooks)
 
-O [guia de execução no servidor](docs/plano-de-implementacao/EXECUCAO_NO_SERVIDOR.md) detalha preparação do RLVS, configuração, treino, avaliação, robustez e validação externa. O modelo PyTorch implementa a arquitetura e os hiperparâmetros dos notebooks originais (CNN selecionável entre MobileNetV2, DenseNet121 e InceptionV3 + BiLSTM + atenção opcional); como o código original foi executado em TensorFlow/Keras (TPU) e os arquivos `.keras` treinados não foram anexados, um novo treinamento deve ser identificado como adaptação/reprodução em PyTorch, e não como o checkpoint original. Confira a GPU e o PyTorch do servidor antes de executar.
+Após baixar o dataset, o fluxo completo consiste em 4 passos:
+
+1. **Preparação dos dados (gerar manifesto estratificado):**
+   ```powershell
+   uv run --group training python scripts/research.py prepare --config configs/rlvs_baseline.toml
+   ```
+   *(Interface no Jupyter: `notebooks/01_prepare_dataset.ipynb`)*
+
+2. **Treinamento do modelo:**
+   ```powershell
+   # Modelo baseline padrão (MobileNetV2 + BiLSTM + Atenção):
+   uv run --group training python scripts/research.py train --config configs/rlvs_baseline.toml
+
+   # Ou variando backbone (ex.: densenet121, swin_t, convnext_tiny) e temporal_head (bilstm ou transformer):
+   uv run --group training python scripts/research.py train --config configs/rlvs_baseline.toml --backbone densenet121 --attention
+   ```
+   *(Interface no Jupyter: `notebooks/02_train_baseline.ipynb` — retorna o `RUN_ID` gerado em `output/`)*
+
+3. **Avaliação na partição de teste e teste de robustez:**
+   ```powershell
+   uv run --group training python scripts/research.py evaluate --run-id <RUN_ID> --robustness
+   ```
+   *(Interface no Jupyter: `notebooks/03_evaluate_test.ipynb`)*
+
+4. **Validação externa (*cross-dataset* no RWF-2000):**
+   ```powershell
+   uv run --group training python scripts/research.py prepare --config configs/rwf2000_external.toml
+   uv run --group training python scripts/research.py evaluate --run-id <RUN_ID> --dataset-root data/raw/rwf2000-v1 --external-manifest data/processed/rwf2000-external.json
+   ```
+   *(Interface no Jupyter: `notebooks/04_evaluate_external.ipynb`)*
+
+Consulte o [guia de execução no servidor](docs/plano-de-implementacao/EXECUCAO_NO_SERVIDOR.md) para detalhes de GPU, logs de treinamento e opções de compressão FFmpeg.
 
 ## Mapa do projeto
 
