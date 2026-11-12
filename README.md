@@ -8,7 +8,7 @@ Os notebooks são a interface de experimentação: apresentam objetivo, parâmet
 
 Instale o [uv](https://docs.astral.sh/uv/getting-started/installation/) e, na raiz do repositório, execute:
 
-```powershell
+```bash
 uv sync --all-groups
 uv run --group notebooks python -m ipykernel install --user --name bilstm-experimentos --display-name "Python (BILSTM Experimentos)"
 uv run --group notebooks jupyter lab
@@ -26,7 +26,7 @@ O pesquisador identificou o [Real Life Violence Situations Dataset no Kaggle](ht
    - **No Linux/macOS:** `export KAGGLE_API_TOKEN="SEU_TOKEN"`
 3. Baixe os datasets via linha de comando:
 
-```powershell
+```bash
 # Baixa o RLVS (v1) em data/raw/rlvs-v1/:
 uv run --group data python scripts/download_dataset.py
 
@@ -41,13 +41,13 @@ O primeiro comando baixa a versão 1 do RLVS em `data/raw/rlvs-v1/`; o segundo b
 Após baixar o dataset, o fluxo completo consiste em 4 passos:
 
 1. **Preparação dos dados (gerar manifesto estratificado):**
-   ```powershell
+   ```bash
    uv run --group training python scripts/research.py prepare --config configs/rlvs_baseline.toml
    ```
    *(Interface no Jupyter: `notebooks/01_prepare_dataset.ipynb`)*
 
 2. **Treinamento do modelo:**
-   ```powershell
+   ```bash
    # Modelo baseline padrão (MobileNetV2 + BiLSTM + Atenção):
    uv run --group training python scripts/research.py train --config configs/rlvs_baseline.toml
 
@@ -57,13 +57,13 @@ Após baixar o dataset, o fluxo completo consiste em 4 passos:
    *(Interface no Jupyter: `notebooks/02_train_baseline.ipynb` — retorna o `RUN_ID` gerado em `output/`)*
 
 3. **Avaliação na partição de teste e teste de robustez:**
-   ```powershell
+   ```bash
    uv run --group training python scripts/research.py evaluate --run-id <RUN_ID> --robustness
    ```
    *(Interface no Jupyter: `notebooks/03_evaluate_test.ipynb`)*
 
 4. **Validação externa (*cross-dataset* no RWF-2000):**
-   ```powershell
+   ```bash
    uv run --group training python scripts/research.py prepare --config configs/rwf2000_external.toml
    uv run --group training python scripts/research.py evaluate --run-id <RUN_ID> --dataset-root data/raw/rwf2000-v1 --external-manifest data/processed/rwf2000-external.json
    ```
