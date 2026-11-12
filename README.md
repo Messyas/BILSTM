@@ -16,12 +16,21 @@ uv run --group notebooks jupyter lab
 
 No Jupyter, selecione o kernel **Python (BILSTM Experimentos)**. Os notebooks `01` a `04` cobrem preparo, treino, avaliacao no teste reservado e avaliacao externa. O treino e as avaliacoes devem rodar no servidor configurado. Consulte o [guia de uso](docs/GUIA_DE_USO.md) para os comandos do fluxo real.
 
-### Baixar o dataset
+### Baixar os datasets
 
-O pesquisador identificou o [Real Life Violence Situations Dataset no Kaggle](https://www.kaggle.com/datasets/mohamedmustafa/real-life-violence-situations-dataset) como a base utilizada. Após configurar o acesso ao Kaggle conforme o [guia](docs/GUIA_DE_USO.md#2-baixar-o-dataset), rode na raiz:
+O pesquisador identificou o [Real Life Violence Situations Dataset no Kaggle](https://www.kaggle.com/datasets/mohamedmustafa/real-life-violence-situations-dataset) como a base utilizada. 
+
+1. Obtenha seu token de API do Kaggle em [Kaggle Settings → API](https://www.kaggle.com/settings/api).
+2. Configure a variável no terminal (apenas na sessão atual, sem salvar no Git):
+   - **No Windows (PowerShell):** `$env:KAGGLE_API_TOKEN = "SEU_TOKEN"` (ou `$env:KAGGLE_USERNAME = "..."` e `$env:KAGGLE_KEY = "..."`)
+   - **No Linux/macOS:** `export KAGGLE_API_TOKEN="SEU_TOKEN"`
+3. Baixe os datasets via linha de comando:
 
 ```powershell
+# Baixa o RLVS (v1) em data/raw/rlvs-v1/:
 uv run --group data python scripts/download_dataset.py
+
+# Baixa o benchmark externo RWF-2000 em data/raw/rwf2000-v1/:
 uv run --group data python scripts/download_dataset.py --dataset rwf2000
 ```
 
