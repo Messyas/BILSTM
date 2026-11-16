@@ -151,7 +151,7 @@ def main():
     gpu = hardware["gpu"]
     training_hosts = "; ".join(f"`{run['backbone']}` em {run['training']['environment']['hardware']['hostname']} ({run['training']['environment']['hardware']['gpu']['name']}, CPU {run['training']['environment']['hardware']['cpu']['model']}, {run['training']['environment']['hardware']['ram_gib']} GiB RAM)" for run in runs)
     hw_text = (f"- **Treino (GPU):** {training_hosts}.\n"
-               f"- **Latência (GPU):** {hardware['hostname']} —{gpu['name']} ({gpu['memory_gib']} GiB, CC {gpu['compute_capability']}, driver {gpu['driver']}, CUDA {gpu['cuda_runtime']}, cuDNN {gpu['cudnn']}); "
+               f"- **Latência (GPU):** {hardware['hostname']} — {gpu['name']} ({gpu['memory_gib']} GiB, CC {gpu['compute_capability']}, driver {gpu['driver']}, CUDA {gpu['cuda_runtime']}, cuDNN {gpu['cudnn']}); "
                f"CPU {hardware['cpu']['model']} ({hardware['cpu']['physical_cores']} núcleos físicos / {hardware['cpu']['logical_cpus']} lógicos; {hardware['cpu']['cpus_allocated_to_process']} alocados ao job); RAM {hardware['ram_gib']} GiB; "
                f"{hardware['torch_threads']} threads PyTorch; {hardware['os']}.\n"
                f"- **Calibração, teste, robustez e RWF-2000 (CPU, mesmo dispositivo para todos os scores):** {eval_hardware['hostname']} — CPU {eval_hardware['cpu']['model']} ({eval_hardware['cpu']['physical_cores']} físicos / {eval_hardware['cpu']['logical_cpus']} lógicos; {eval_hardware['cpu']['cpus_allocated_to_process']} alocados); RAM {eval_hardware['ram_gib']} GiB; {eval_hardware['torch_threads']} threads PyTorch.\n"
