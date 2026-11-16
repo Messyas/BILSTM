@@ -49,13 +49,24 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _member_name(info: zipfile.ZipInfo) -> str:
+    """Recover UTF-8 names stored without the UTF-8 flag. / Recupera nomes UTF-8 gravados sem a marca UTF-8."""
+    name = info.filename
+    if not info.flag_bits & 0x800:
+        try:
+            name = name.encode("cp437").decode("utf-8")
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            pass
+    return name
+
+
 def _extract_archive(archive: Path, destination: Path) -> int:
     """Extract safe regular files. / Extrai arquivos regulares seguros."""
     count = 0
     seen_files: set[str] = set()
     with zipfile.ZipFile(archive) as zipped:
         for info in zipped.infolist():
-            name = info.filename
+            name = _member_name(info)
             relative = PurePosixPath(name)
             if (not name or "\\" in name or relative.is_absolute() or not relative.parts
                     or any(part in (".", "..") or ":" in part for part in relative.parts)

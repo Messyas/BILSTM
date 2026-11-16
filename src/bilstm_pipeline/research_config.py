@@ -34,7 +34,7 @@ _FIELDS = {
         "lr_factor", "lr_patience", "min_learning_rate", "early_stopping_patience",
         "seed", "device", "num_workers",
     },
-    "evaluation": {"threshold", "bootstrap_resamples"},
+    "evaluation": {"threshold", "target_fpr", "bootstrap_resamples"},
     "robustness": {"brightness_delta", "contrast_factor", "noise_sigma", "occlusion_fraction", "jpeg_quality", "video_crf"},
 }
 
@@ -133,6 +133,7 @@ def _validate_numeric_ranges(config):
         ("training", "lr_factor", 0, 1, False),
         ("training", "min_learning_rate", 0, math.inf, False),
         ("evaluation", "threshold", 0, 1, True),
+        ("evaluation", "target_fpr", 0, 1, False),
     )
     for section, key, low, high, inclusive_high in ranges:
         value = config[section][key]
