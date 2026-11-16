@@ -114,6 +114,9 @@ def measure_latency(run_id: str, *, videos: int = 100, fps: float = 30.0, window
     rng = np.random.default_rng(config["training"]["seed"])
     records = [test[index] for index in sorted(rng.choice(len(test), size=min(videos, len(test)), replace=False))]
     root = resolve_project_path(dataset_root or config["data"]["root"])
+    for record in records:
+        # Read every file once so all backbones are timed from the page cache, not cold network storage.
+        video_path(root, record).read_bytes()
     warm = decode_video(video_path(root, records[0]), **config["video"])
     for _ in range(WARMUP_INFERENCES):
         _predict(model, warm, selected)
@@ -126,6 +129,7 @@ def measure_latency(run_id: str, *, videos: int = 100, fps: float = 30.0, window
         "videos": len(records),
         "sample_ids": [record["sample_id"] for record in records],
         "warmup_inferences": WARMUP_INFERENCES,
+        "files_preloaded_into_page_cache": True,
         "hardware": hardware_metadata(selected),
         "offline": _offline(records, root, config, selected, model),
         "streaming": _stream(records, root, config, selected, model, fps=fps, window_seconds=window_seconds, stride_seconds=stride_seconds),

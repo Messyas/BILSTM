@@ -187,7 +187,7 @@ Gerado por `scripts/consolidate_results.py` a partir dos artefatos em `output/<R
 
 Perturbações sintéticas sobre vídeos observados; não representam câmeras ou aglomerações reais. JPEG por quadro e recodificação H.264 (libx264, CRF {runs[0]['test']['robustness']['parameters']['video_crf']}) são condições distintas. ICs completos de todas as métricas por condição estão em `robustness.json` de cada avaliação.
 
-## Latência (RTX 4090, lote 1, {WARMUP} inferências de aquecimento)
+## Latência (RTX 4090, lote 1, {runs[0]["latency"]["warmup_inferences"]} inferências de aquecimento)
 
 {_md_table(latency)}
 
@@ -201,7 +201,6 @@ Perturbações sintéticas sobre vídeos observados; não representam câmeras o
 ## Proveniência
 
 """ + "\n".join(f"- `{run['backbone']}`: run `{run['run_id']}`; teste `{run['test']['dir']}`; RWF `{run['external']['dir']}`; limiar `output/{run['run_id']}/threshold.json`." for run in runs) + "\n"
-    report = report.replace("{WARMUP}", str(runs[0]["latency"]["warmup_inferences"]))
     (out / "RESULTADOS.md").write_text(report, encoding="utf-8")
     (out / "resumo.json").write_text(json.dumps(runs, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
     print(f"Output: {out}")
