@@ -126,7 +126,7 @@ def _ffmpeg_details(video_compression, robustness):
         raise FileNotFoundError("FFmpeg with libx264 is required for video compression.")
     if ffmpeg is None:
         return None, None
-    info = subprocess.run([ffmpeg, "-version"], check=True, capture_output=True, text=True, timeout=10)
+    info = subprocess.run([ffmpeg, "-version"], check=True, capture_output=True, text=True, timeout=120)
     return ffmpeg, info.stdout.splitlines()[0]
 
 

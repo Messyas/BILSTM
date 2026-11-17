@@ -82,7 +82,7 @@ def main():
     def table(getter, labels):
         rows = []
         for key, label in labels:
-            row = {"metrica": label}
+            row = {"Métrica": label}
             for bb in backbones:
                 row[f"{bb} (n={len(by[bb])})"] = _summary([value for value in (getter(run, key) for run in by[bb]) if value is not None])
             rows.append(row)

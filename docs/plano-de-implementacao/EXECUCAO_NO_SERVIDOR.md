@@ -113,13 +113,24 @@ Só o tempo é medido; a acurácia em janelas deslizantes não é avaliada. O ha
 
 ## 6.2 Execução no Heisenberg
 
-Os scripts em `jobs/` reservam uma RTX 4090 (`-p gpu --gres=gpu:4090:1`), usam o `/tmp` local do nó como `TMPDIR` e o apagam no fim. O ffmpeg vem de `~/Packages/ffmpeg-env`. Os comandos são enviados a partir da raiz do repositório:
+Os scripts em `jobs/` usam o `/tmp` local do nó como `TMPDIR` e o apagam no fim. O ffmpeg vem de `~/Packages/ffmpeg-env`. Os comandos são enviados a partir da raiz do repositório.
+
+- **Treino:** reserva uma RTX 4090 (`-p gpu --gres=gpu:4090:1`), com no máximo duas GPUs ao mesmo tempo (`%2`).
+- **Avaliação:** roda inteira na fila `cpu`. Com isso, nenhuma GPU reservada fica ociosa, o que o monitor do cluster pune com cancelamento. Os scores de validação, teste e RWF-2000 saem todos do mesmo dispositivo.
+- **Latência:** é o único passo de avaliação que reserva GPU. Usa uma 4090 do work6, sem `--exclusive`.
 
 ```bash
-sbatch -J train-densenet121 --export=ALL,BACKBONE=densenet121 jobs/train.slurm
-sbatch -J eval-densenet121 --export=ALL,RUN_ID=rlvs-... jobs/evaluate.slurm   # calibrate -> teste+robustez+H.264 -> RWF-2000
-sbatch --export=ALL,RUN_IDS="rlvs-a rlvs-b rlvs-c" jobs/latency.slurm          # work5 exclusivo
+sbatch jobs/train_array.slurm                                                  # 3 backbones, seed 42
+sbatch --export=ALL,RUN_ID=rlvs-... jobs/evaluate_cpu.slurm                     # calibrate -> teste+robustez+H.264 -> RWF-2000
+sbatch --export=ALL,RUN_IDS="rlvs-a rlvs-b rlvs-c" jobs/latency.slurm          # GPU (work6)
+J=$(sbatch --parsable jobs/train_seeds.slurm)                                  # adendo: seeds 1-5 x 3 backbones
+sbatch --dependency=afterany:$J jobs/evaluate_seeds_cpu.slurm                  # dados copiados uma vez por nó para /tmp/bilstm-data
+sbatch -w <nó> --dependency=afterany:<job> jobs/cleanup_node_data.slurm        # apaga /tmp/bilstm-data no nó
+uv run --no-sync python scripts/consolidate_results.py rlvs-a rlvs-b rlvs-c    # output/consolidado/
+uv run --no-sync python scripts/summarize_seeds.py --main rlvs-a rlvs-b rlvs-c  # output/consolidado/suplementar_seeds/
 ```
+
+**/home por NFS.** O /home é servido por NFS a partir do work0. Por isso, os jobs que leem muitos dados copiam a base uma vez por nó para o `/tmp`. Em 16/11/2026, o work8 lia o /home a cerca de 18 MB/s, com link de 1 Gb/s. No mesmo teste, o work1 lia a 474 MB/s, com 10 Gb/s. Nessa velocidade, a importação do PyTorch e o `ffmpeg -version` estouravam o tempo limite. A avaliação do adendo excluiu o work8 depois de 5 falhas, todas antes de calcular qualquer métrica.
 
 O RLVS do Kaggle (v1) traz duas cópias idênticas da base. A raiz aponta para `data/raw/rlvs-v1/Real Life Violence Dataset`. A base tem 13 pares de vídeos idênticos na mesma classe, que ficam agrupados na mesma partição, e um par idêntico em classes opostas (`NonViolence/NV_226.mp4` = `Violence/V_504.mp4`). Esse par é excluído com `prepare --drop-label-conflicts` e registrado no manifesto. Com seed 42, a divisão fica em 1277 / 319 / 402 vídeos, num total de 1998.
 
