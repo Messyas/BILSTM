@@ -14,6 +14,7 @@ import numpy as np
 import torch
 
 from .execution import run_path, write_json
+from .hardware import hardware_metadata
 from .metrics import binary_metrics, grouped_bootstrap
 from .plots import plot_binary_metrics, plot_confusion_matrix, plot_robustness_comparison
 from .research_config import resolve_project_path, validate_research_config
@@ -24,6 +25,22 @@ from .results import save_evaluation
 from .robustness import brightness, contrast, gaussian_noise, jpeg_compression, occlusion
 
 _RUN_MANIFEST_FILENAME = "manifest.json"
+THRESHOLD_FILENAME = "threshold.json"
+WARMUP_INFERENCES = 20
+
+
+def load_frozen_threshold(run_dir: Path) -> dict:
+    """Load the validation-calibrated threshold. / Carrega o limiar calibrado na validação."""
+    path = run_dir / THRESHOLD_FILENAME
+    if not path.is_file():
+        raise FileNotFoundError(f"Frozen threshold not found: {path}. Run `research.py calibrate --run-id {run_dir.name}` before any test, robustness or external evaluation.")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    threshold = payload.get("threshold")
+    if type(threshold) not in (int, float) or not 0 <= threshold <= 1:
+        raise ValueError(f"Invalid frozen threshold in {path}.")
+    if payload.get("checkpoint_sha256") != _hash_file(run_dir / "best.pt"):
+        raise ValueError("The frozen threshold was calibrated for a different checkpoint.")
+    return {"threshold": float(threshold), "file": str(path), "file_sha256": _hash_file(path), "target_fpr": payload.get("target_fpr"), "rule": payload.get("rule")}
 
 
 def _load_run(run_id: str, device: str | None):
@@ -54,7 +71,7 @@ def _predict(model, frames, device):
     preprocess = time.perf_counter() - start_preprocess
     start_inference = time.perf_counter()
     with torch.inference_mode():
-        probabilities = torch.softmax(model(tensor), dim=1)
+        probabilities = torch.softmax(model(tensor).double(), dim=1)
         if device.type == "cuda":
             torch.cuda.synchronize(device)
         score = float(probabilities[0, 1].item())
@@ -97,7 +114,7 @@ def _timing_summary(decode_times, preprocess_times, inference_times, frames):
     def stats(values):
         return {"median_ms": float(np.median(values) * 1000), "p95_ms": float(np.percentile(values, 95) * 1000)}
     combined = np.array(decode_times) + np.array(preprocess_times) + np.array(inference_times)
-    return {"unit": "one sampled video sequence", "warmup_inferences": 2, "decode": stats(decode_times), "preprocess_and_transfer": stats(preprocess_times), "inference": stats(inference_times), "offline_total": stats(combined), "inference_throughput_sampled_frames_per_second": float(frames * len(inference_times) / sum(inference_times)), "note": "Offline video processing; this does not measure live acquisition latency."}
+    return {"unit": "one sampled video sequence", "videos": len(inference_times), "batch_size": 1, "warmup_inferences": WARMUP_INFERENCES, "decode": stats(decode_times), "preprocess_and_transfer": stats(preprocess_times), "inference": stats(inference_times), "offline_total": stats(combined), "inference_throughput_sampled_frames_per_second": float(frames * len(inference_times) / sum(inference_times)), "note": "Offline video processing; this does not measure live acquisition latency."}
 
 
 def _ffmpeg_details(video_compression, robustness):
@@ -109,7 +126,7 @@ def _ffmpeg_details(video_compression, robustness):
         raise FileNotFoundError("FFmpeg with libx264 is required for video compression.")
     if ffmpeg is None:
         return None, None
-    info = subprocess.run([ffmpeg, "-version"], check=True, capture_output=True, text=True, timeout=10)
+    info = subprocess.run([ffmpeg, "-version"], check=True, capture_output=True, text=True, timeout=120)
     return ffmpeg, info.stdout.splitlines()[0]
 
 
@@ -142,8 +159,8 @@ def _collect_scores(records, root, config, selected, model, robustness, ffmpeg):
         frames = decode_video(video_path(root, record), **config["video"])
         decode_times.append(time.perf_counter() - start)
         if index == 0:
-            _predict(model, frames, selected)
-            _predict(model, frames, selected)
+            for _ in range(WARMUP_INFERENCES):
+                _predict(model, frames, selected)
         score, preprocessing, inference = _predict(model, frames, selected)
         labels.append(record["label"])
         scores.append(score)
@@ -166,7 +183,7 @@ def _save_robustness(target, config, source, unit, data, predictions):
     for name, values in data["variants"].items():
         changed = (np.asarray(values) >= config["evaluation"]["threshold"]).astype(int)
         save_evaluation(target / name, sample_ids=data["ids"], y_true=data["labels"], y_pred=changed, scores=values, threshold=config["evaluation"]["threshold"], source=source, unit=unit)
-        comparisons[name] = {"metrics": binary_metrics(data["labels"], changed), "paired_accuracy_difference": grouped_bootstrap(data["labels"], predictions, data["groups"], metric="accuracy", n_resamples=config["evaluation"]["bootstrap_resamples"], seed=config["training"]["seed"], paired_pred=changed)}
+        comparisons[name] = {"metrics": binary_metrics(data["labels"], changed), "confidence_intervals": _intervals(data["labels"], changed, data["groups"], seed=config["training"]["seed"], resamples=config["evaluation"]["bootstrap_resamples"]), "paired_accuracy_difference": grouped_bootstrap(data["labels"], predictions, data["groups"], metric="accuracy", n_resamples=config["evaluation"]["bootstrap_resamples"], seed=config["training"]["seed"], paired_pred=changed)}
     write_json(target / "robustness.json", {"parameters": config["robustness"], "comparisons": comparisons, "note": "Synthetic perturbations on observed videos; label validity and camera/crowd representativeness require review."})
     plot_robustness_comparison(comparisons, target / "figures")
 
@@ -174,6 +191,8 @@ def _save_robustness(target, config, source, unit, data, predictions):
 def evaluate_model(run_id: str, *, dataset_root: str | Path | None = None, external_manifest: str | Path | None = None, device: str | None = None, robustness: bool = False, video_compression: bool = False) -> Path:
     """Evaluate test or independent data. / Avalia teste ou dados independentes."""
     run_dir, config, selected, model = _load_run(run_id, device)
+    frozen = load_frozen_threshold(run_dir)
+    config["evaluation"]["threshold"] = frozen["threshold"]
     ffmpeg, ffmpeg_version = _ffmpeg_details(video_compression, robustness)
     manifest, records, evaluation_type = _evaluation_records(run_dir, external_manifest, dataset_root)
     if not records:
@@ -186,10 +205,12 @@ def evaluate_model(run_id: str, *, dataset_root: str | Path | None = None, exter
     target = run_dir / "evaluations" / evaluation_id
     target.mkdir(parents=True, exist_ok=False)
     print(f"Evaluation ID: {evaluation_id}", flush=True)
-    status = {"id": evaluation_id, "run_id": run_id, "status": "running", "type": evaluation_type, "source": manifest["source"], "unit": "one video; one uniformly sampled sequence", "threshold": config["evaluation"]["threshold"], "robustness": robustness, "video_compression": video_compression, "ffmpeg_version": ffmpeg_version, "checkpoint_sha256": _hash_file(run_dir / "best.pt"), "started_utc": datetime.now(timezone.utc).isoformat()}
+    status = {"id": evaluation_id, "run_id": run_id, "status": "running", "type": evaluation_type, "source": manifest["source"], "unit": "one video; one uniformly sampled sequence", "threshold": config["evaluation"]["threshold"], "threshold_source": frozen["file"], "threshold_sha256": frozen["file_sha256"], "threshold_target_fpr": frozen["target_fpr"], "robustness": robustness, "video_compression": video_compression, "ffmpeg_version": ffmpeg_version, "checkpoint_sha256": _hash_file(run_dir / "best.pt"), "started_utc": datetime.now(timezone.utc).isoformat()}
     try:
         write_json(target / _RUN_MANIFEST_FILENAME, status)
         write_json(target / "dataset_manifest.json", manifest)
+        write_json(target / "frozen_threshold.json", frozen)
+        write_json(target / "hardware.json", hardware_metadata(selected))
         data = _collect_scores(records, root, config, selected, model, robustness, ffmpeg)
         predictions = (np.asarray(data["scores"]) >= config["evaluation"]["threshold"]).astype(int)
         result = save_evaluation(target / "clean", sample_ids=data["ids"], y_true=data["labels"], y_pred=predictions, scores=data["scores"], threshold=config["evaluation"]["threshold"], source=manifest["source"], unit=status["unit"])

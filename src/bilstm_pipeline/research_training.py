@@ -20,6 +20,7 @@ from torch.utils.data import DataLoader, Dataset
 import tomli_w
 
 from .execution import run_path, write_json
+from .hardware import hardware_metadata
 from .plots import plot_training_history
 from .research_config import load_research_config, resolve_project_path, validate_research_config
 from .research_data import _hash_file, decode_video, load_manifest, video_path
@@ -77,7 +78,7 @@ def _device_metadata(device: torch.device) -> dict:
         dirty = bool(subprocess.run(["git", "status", "--porcelain"], check=True, capture_output=True, text=True, timeout=5).stdout.strip())
     except (OSError, subprocess.SubprocessError):
         revision, dirty = None, None
-    return {"framework": "pytorch", "python": platform.python_version(), "platform": platform.platform(), "torch": torch.__version__, "torchvision": version("torchvision"), "opencv": version("opencv-python-headless"), "cuda_runtime": getattr(getattr(torch, "version", None), "cuda", None), "device": str(device), "gpu": torch.cuda.get_device_name(device) if device.type == "cuda" else None, "git_revision": revision, "uncommitted_changes": dirty}
+    return {"framework": "pytorch", "python": platform.python_version(), "platform": platform.platform(), "torch": torch.__version__, "torchvision": version("torchvision"), "opencv": version("opencv-python-headless"), "cuda_runtime": getattr(getattr(torch, "version", None), "cuda", None), "device": str(device), "gpu": torch.cuda.get_device_name(device) if device.type == "cuda" else None, "git_revision": revision, "uncommitted_changes": dirty, "hardware": hardware_metadata(device)}
 
 
 def _run_epoch(model, loader, device, loss_fn, optimizer=None) -> tuple[float, float]:

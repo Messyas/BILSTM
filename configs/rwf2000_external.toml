@@ -41,7 +41,10 @@ device = "cuda"
 num_workers = 0
 
 [evaluation]
+# Fallback only: test, robustness and external evaluations use output/<RUN>/threshold.json from `calibrate`.
 threshold = 0.5
+# Maximum false positive rate on the RLVS validation split when calibrating the frozen threshold.
+target_fpr = 0.05
 bootstrap_resamples = 1000
 
 [robustness]

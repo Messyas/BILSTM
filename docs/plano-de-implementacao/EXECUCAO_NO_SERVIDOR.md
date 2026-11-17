@@ -24,7 +24,7 @@ Revise `configs/rlvs_baseline.toml` antes da execução. Os parâmetros reproduz
 - **Modelo (`[model]`):** `backbone` selecionável entre os 3 originais (`"mobilenet_v2"`, `"densenet121"`, `"inception_v3"`) e 5 arquiteturas modernas/Vision Transformers (`"mobilenet_v3_large"`, `"efficientnet_v2_s"`, `"convnext_tiny"`, `"swin_t"`, `"vit_b_16"`), `pretrained = true`, `trainable_layers = 80` (libera os últimos 80 módulos folha), `pooling = "avg"` (ou `"flatten"`), `temporal_head = "bilstm"` (ou `"transformer"`), `hidden_size = 32`, `attention = true` (ou `false` para experimentos sem atenção), `dense_units = [256, 128, 64, 32]` e `dropout = 0.25`.
 - **Treinamento (`[training]`):** `epochs = 100`, `batch_size = 64` (ou `128`), `optimizer = "sgd"`, `learning_rate = 0.01`, `momentum = 0.9`, `ReduceLROnPlateau` monitorando `validation_loss` (`lr_factor = 0.6`, `lr_patience = 5`, `min_learning_rate = 0.00005` ou `0.0005`) e `EarlyStopping` monitorando `validation_accuracy` (`early_stopping_patience = 10`).
 
-O limiar de decisão (`evaluation.threshold = 0.5`) é fixado no arquivo antes do teste; não há calibração automática. Seeds registradas reduzem variação, mas não garantem determinismo entre GPUs, bibliotecas e sistemas.
+O limiar de decisão é **calibrado na validação do RLVS** pelo comando `calibrate` (seção 4.1), com teto de FPR `evaluation.target_fpr = 0.05`, e congelado em `output/<RUN_ID>/threshold.json`. O mesmo limiar é usado no teste do RLVS, na robustez e no RWF-2000; o `evaluate` recusa rodar sem esse arquivo. `evaluation.threshold = 0.5` é só valor de referência e não decide nenhuma avaliação. Seeds registradas reduzem variação, mas não garantem determinismo entre GPUs, bibliotecas e sistemas.
 
 O inventário reconhece arquivos de vídeo em diretórios chamados `Violence` e `NonViolence` (ignorando maiúsculas e espaços). Por padrão ele agrupa por SHA-256 e divide cada classe por grupos em treino, validação e teste, sem compartilhar um arquivo idêntico entre partições. Vídeos reeditados ou gravados na mesma cena podem ter hashes diferentes: revise essas relações e a licença antes da análise científica. A proporção final pode variar por causa do número de grupos. A divisão padrão não garante independência por cena ou canal de origem.
 
@@ -64,6 +64,14 @@ uv run --no-sync python scripts/research.py train --config configs/rlvs_baseline
 
 O comando informa um ID como `rlvs-...`. Para o mesmo fluxo no Jupyter, use `02_train_baseline.ipynb` **no servidor**. O treino confere os hashes do manifesto, converte e armazena em cache as sequências matriciais de treino e validação na primeira época, aplica `ReduceLROnPlateau` na perda de validação e `EarlyStopping` com seleção de `best.pt` pela maior acurácia de validação (desempatando pela menor perda de validação). Salva configuração efetiva, manifesto dos dados, histórico de perda/acurácia/taxa de aprendizado, gráfico, tempo de treinamento, ambiente, revisão Git disponível e estado da execução em `output/<RUN_ID>/`. O conjunto de teste não é usado para selecionar o checkpoint. Uma falha deixa o estado `failed` no manifesto, em vez de marcar uma execução parcial como concluída.
 
+### 4.1 Calibrar e congelar o limiar
+
+```bash
+uv run --no-sync python scripts/research.py calibrate --run-id RUN_ID
+```
+
+O comando pontua a partição de validação com o `best.pt` e escolhe o limiar de menor margem que mantém o FPR da validação ≤ `target_fpr`, o que maximiza o recall sob esse teto. O limiar fica no ponto médio entre o maior score negativo rejeitado e o score seguinte, e a classe positiva vale para `score >= limiar`. O resultado vai para `threshold.json`, vinculado ao SHA-256 do `best.pt`, junto com as predições da validação em `calibration/`. A calibração não pode ser refeita para o mesmo run. A validação também escolheu o `best.pt`, por isso o FPR em dados novos pode passar da meta; isso deve ser declarado.
+
 ## 5. Avaliar e medir robustez
 
 Substitua `RUN_ID` pelo identificador informado no treinamento:
@@ -89,6 +97,42 @@ uv run --no-sync python scripts/research.py evaluate --run-id RUN_ID --dataset-r
 ```
 
 A avaliação externa usa todos os registros desse manifesto, sem treinar nem ajustar o limiar. Ela recusa hashes idênticos aos da base original e fontes declaradas iguais. Isso não detecta reedições ou garante que uma base nunca tenha sido compartilhada com o RLVS: tais verificações continuam sob responsabilidade do protocolo. O notebook `04_evaluate_external.ipynb` já aponta para `configs/rwf2000_external.toml`.
+
+## 6.1 Latência (offline e streaming)
+
+```bash
+uv run --no-sync python scripts/research.py latency --run-id RUN_ID --device cuda
+```
+
+O comando mede duas coisas, separadamente, em até 100 vídeos de teste, com 20 inferências de aquecimento e lote 1:
+
+- **Offline:** decodifica o clipe inteiro em duas passagens, faz o pré-processamento e a inferência. O clipe precisa estar gravado antes.
+- **Streaming:** reproduz cada vídeo como se fosse ao vivo, a 30 fps, com janela de 2 s, passo de 0,5 s e 15 quadros por janela. Mede a decodificação e o redimensionamento por quadro, o tempo por decisão e o orçamento de tempo real.
+
+Só o tempo é medido; a acurácia em janelas deslizantes não é avaliada. O hardware (GPU, driver, CPU, RAM, threads) é gravado em `output/<RUN_ID>/latency/<ID>/latency.json`.
+
+## 6.2 Execução no Heisenberg
+
+Os scripts em `jobs/` usam o `/tmp` local do nó como `TMPDIR` e o apagam no fim. O ffmpeg vem de `~/Packages/ffmpeg-env`. Os comandos são enviados a partir da raiz do repositório.
+
+- **Treino:** reserva uma RTX 4090 (`-p gpu --gres=gpu:4090:1`), com no máximo duas GPUs ao mesmo tempo (`%2`).
+- **Avaliação:** roda inteira na fila `cpu`. Com isso, nenhuma GPU reservada fica ociosa, o que o monitor do cluster pune com cancelamento. Os scores de validação, teste e RWF-2000 saem todos do mesmo dispositivo.
+- **Latência:** é o único passo de avaliação que reserva GPU. Usa uma 4090 do work6, sem `--exclusive`.
+
+```bash
+sbatch jobs/train_array.slurm                                                  # 3 backbones, seed 42
+sbatch --export=ALL,RUN_ID=rlvs-... jobs/evaluate_cpu.slurm                     # calibrate -> teste+robustez+H.264 -> RWF-2000
+sbatch --export=ALL,RUN_IDS="rlvs-a rlvs-b rlvs-c" jobs/latency.slurm          # GPU (work6)
+J=$(sbatch --parsable jobs/train_seeds.slurm)                                  # adendo: seeds 1-5 x 3 backbones
+sbatch --dependency=afterany:$J jobs/evaluate_seeds_cpu.slurm                  # dados copiados uma vez por nó para /tmp/bilstm-data
+sbatch -w <nó> --dependency=afterany:<job> jobs/cleanup_node_data.slurm        # apaga /tmp/bilstm-data no nó
+uv run --no-sync python scripts/consolidate_results.py rlvs-a rlvs-b rlvs-c    # output/consolidado/
+uv run --no-sync python scripts/summarize_seeds.py --main rlvs-a rlvs-b rlvs-c  # output/consolidado/suplementar_seeds/
+```
+
+**/home por NFS.** O /home é servido por NFS a partir do work0. Por isso, os jobs que leem muitos dados copiam a base uma vez por nó para o `/tmp`. Em 16/11/2026, o work8 lia o /home a cerca de 18 MB/s, com link de 1 Gb/s. No mesmo teste, o work1 lia a 474 MB/s, com 10 Gb/s. Nessa velocidade, a importação do PyTorch e o `ffmpeg -version` estouravam o tempo limite. A avaliação do adendo excluiu o work8 depois de 5 falhas, todas antes de calcular qualquer métrica.
+
+O RLVS do Kaggle (v1) traz duas cópias idênticas da base. A raiz aponta para `data/raw/rlvs-v1/Real Life Violence Dataset`. A base tem 13 pares de vídeos idênticos na mesma classe, que ficam agrupados na mesma partição, e um par idêntico em classes opostas (`NonViolence/NV_226.mp4` = `Violence/V_504.mp4`). Esse par é excluído com `prepare --drop-label-conflicts` e registrado no manifesto. Com seed 42, a divisão fica em 1277 / 319 / 402 vídeos, num total de 1998.
 
 ## 7. Verificação e limites
 

@@ -110,6 +110,17 @@ def _validate_group_labels(records: list[dict]) -> None:
         labels_by_group[group_id] = label
 
 
+def _drop_label_conflicts(records: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Remove groups with contradictory labels. / Remove grupos com rótulos contraditórios."""
+    labels_by_group: dict[str, set] = {}
+    for record in records:
+        labels_by_group.setdefault(record["group_id"], set()).add(record["label"])
+    conflicting = {group for group, labels in labels_by_group.items() if len(labels) > 1}
+    kept = [record for record in records if record["group_id"] not in conflicting]
+    excluded = [{"sample_id": record["sample_id"], "label": record["label"], "group_id": record["group_id"], "sha256": record["sha256"], "reason": "identical content with contradictory class labels"} for record in records if record["group_id"] in conflicting]
+    return kept, excluded
+
+
 def _create_assignments(records: list[dict], fractions: tuple, seed: int) -> dict:
     """Create stratified group assignments. / Cria divisoes estratificadas por grupo."""
     assignments = {}
@@ -131,8 +142,9 @@ def _validate_assignment_summary(records: list[dict], assignments: dict) -> None
 
 def _read_download_metadata(root: Path) -> dict | None:
     """Read available download provenance. / Le a origem disponivel do download."""
-    metadata_file = root / "download_metadata.json"
-    if not metadata_file.is_file():
+    candidates = [root / "download_metadata.json", *(parent / "download_metadata.json" for parent in list(root.parents)[:3])]
+    metadata_file = next((candidate for candidate in candidates if candidate.is_file()), None)
+    if metadata_file is None:
         return None
     payload = json.loads(metadata_file.read_text(encoding="utf-8"))
     return {key: payload.get(key) for key in ("dataset", "version", "archive_sha256")}
@@ -154,7 +166,7 @@ def _infer_dataset_identity(root: Path, download_meta: dict | None, dataset_name
     return dataset_name, source
 
 
-def prepare_dataset(config_path: str | Path, *, dataset_root: str | Path | None = None, manifest_path: str | Path | None = None, dataset_name: str = "RLVS", source: str = "mohamedmustafa/real-life-violence-situations-dataset", groups_path: str | Path | None = None) -> Path:
+def prepare_dataset(config_path: str | Path, *, dataset_root: str | Path | None = None, manifest_path: str | Path | None = None, dataset_name: str = "RLVS", source: str = "mohamedmustafa/real-life-violence-situations-dataset", groups_path: str | Path | None = None, drop_label_conflicts: bool = False) -> Path:
     """Build a stratified grouped manifest. / Cria manifesto estratificado por grupos."""
     config = load_research_config(config_path)
     root = resolve_project_path(dataset_root or config["data"]["root"])
@@ -167,6 +179,9 @@ def prepare_dataset(config_path: str | Path, *, dataset_root: str | Path | None 
     if groups_path is not None:
         groups_path = resolve_project_path(groups_path)
         _apply_groups(records, groups_path)
+    excluded = []
+    if drop_label_conflicts:
+        records, excluded = _drop_label_conflicts(records)
     _validate_group_labels(records)
     fractions = tuple(config["split"][name] for name in ("train", "validation", "test"))
     assignments = _create_assignments(records, fractions, config["split"]["seed"])
@@ -180,6 +195,7 @@ def prepare_dataset(config_path: str | Path, *, dataset_root: str | Path | None 
         "proportions": list(fractions),
         "download": download_meta,
         "group_mapping_sha256": _hash_file(groups_path) if groups_path else None,
+        "excluded_label_conflicts": excluded,
         "independence_limit": "Exact hashes checked; source-scene and near-duplicate groups require review.",
     }
     save_manifest(target, records, dataset_name=dataset_name, source=source, license_name="Verify source dataset license and original authors", assignments=assignments, split_metadata=split_metadata)

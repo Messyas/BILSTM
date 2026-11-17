@@ -233,11 +233,24 @@ class ResearchPipelineTests(unittest.TestCase):
             self.assertEqual(saved_config["model"]["backbone"], "densenet121")
             self.assertFalse(saved_config["model"]["attention"])
             fake_frames = np.full((15, 10, 10, 3), 0.5, dtype=np.float32)
+            from bilstm_pipeline.research_calibration import calibrate_threshold
+            with patch("bilstm_pipeline.research_evaluation._load_run", return_value=(target, saved_config, torch.device("cpu"), object())):
+                with self.assertRaisesRegex(FileNotFoundError, "calibrate"):
+                    evaluate_model(run_id, robustness=True)
+            with patch("bilstm_pipeline.research_calibration._load_run", return_value=(target, saved_config, torch.device("cpu"), object())), patch("bilstm_pipeline.research_evaluation.decode_video", return_value=fake_frames), patch("bilstm_pipeline.research_evaluation._predict", return_value=(0.5, 0.01, 0.02)):
+                calibrate_threshold(run_id)
+                with self.assertRaises(FileExistsError):
+                    calibrate_threshold(run_id)
+            frozen = json.loads((target / "threshold.json").read_text(encoding="utf-8"))
+            self.assertGreater(frozen["threshold"], 0.5)
             with patch("bilstm_pipeline.research_evaluation._load_run", return_value=(target, saved_config, torch.device("cpu"), object())), patch("bilstm_pipeline.research_evaluation.decode_video", return_value=fake_frames), patch("bilstm_pipeline.research_evaluation._predict", return_value=(0.5, 0.01, 0.02)):
                 evaluation = evaluate_model(run_id, robustness=True)
             self.assertEqual(json.loads((evaluation / "manifest.json").read_text(encoding="utf-8"))["status"], "completed")
             self.assertTrue((evaluation / "clean" / "predictions.csv").is_file())
             self.assertTrue((evaluation / "figures" / "robustness.png").is_file())
+            evaluation_status = json.loads((evaluation / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(evaluation_status["threshold"], frozen["threshold"])
+            self.assertIn("confidence_intervals", json.loads((evaluation / "robustness.json").read_text(encoding="utf-8"))["comparisons"]["noise"])
             ffmpeg_info = Mock(stdout="ffmpeg mock version\n")
             with patch("bilstm_pipeline.research_evaluation._load_run", return_value=(target, saved_config, torch.device("cpu"), object())), patch("bilstm_pipeline.research_evaluation.decode_video", return_value=fake_frames), patch("bilstm_pipeline.research_evaluation._predict", return_value=(0.5, 0.01, 0.02)), patch("bilstm_pipeline.research_evaluation.shutil.which", return_value="ffmpeg"), patch("bilstm_pipeline.research_evaluation.subprocess.run", return_value=ffmpeg_info), patch("bilstm_pipeline.research_evaluation._compressed_video_frames", return_value=fake_frames):
                 compressed = evaluate_model(run_id, robustness=True, video_compression=True)
