@@ -1,0 +1,7 @@
+backbone,conjunto,TN,FP,FN,TP,n
+mobilenet_v2,RLVS teste,192,9,12,189,402
+mobilenet_v2,RWF-2000,537,463,387,613,2000
+densenet121,RLVS teste,183,18,8,193,402
+densenet121,RWF-2000,476,524,392,608,2000
+inception_v3,RLVS teste,195,6,49,152,402
+inception_v3,RWF-2000,572,428,456,544,2000

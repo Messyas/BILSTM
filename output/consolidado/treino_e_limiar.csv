@@ -1,0 +1,4 @@
+backbone,run_id,epocas,melhor_epoca,acc_validacao,tempo_treino_s,limiar,fpr_validacao,recall_validacao
+mobilenet_v2,rlvs-20261116T182754Z-9f8e5bbb,34,24,"0,962",213,"0,6709","0,050","0,987"
+densenet121,rlvs-20261116T182320Z-2c934236,44,34,"0,956",307,"0,3312","0,050","0,956"
+inception_v3,rlvs-20261116T182320Z-598ec442,43,33,"0,915",261,"0,9953","0,050","0,805"

@@ -8,6 +8,7 @@ import argparse
 import csv
 import json
 from pathlib import Path
+import shutil
 import tomllib
 
 from bilstm_pipeline.paths import project_root
@@ -204,8 +205,29 @@ Perturbações sintéticas sobre vídeos observados; não representam câmeras o
 
 """ + "\n".join(f"- `{run['backbone']}`: run `{run['run_id']}`; teste `{run['test']['dir']}`; RWF `{run['external']['dir']}`; limiar `output/{run['run_id']}/threshold.json`." for run in runs) + "\n"
     (out / "RESULTADOS.md").write_text(report, encoding="utf-8")
-    (out / "resumo.json").write_text(json.dumps(runs, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
+    # Repository-relative paths only: the summary is published with the results. / Só caminhos relativos ao repositório.
+    summary = json.dumps(runs, indent=2, ensure_ascii=False, default=str).replace(str(project_root()) + "/", "")
+    (out / "resumo.json").write_text(summary, encoding="utf-8")
+    _copy_figures(runs, out / "figuras")
     print(f"Output: {out}")
+
+
+FIGURE_NAMES = {"confusion_matrix": "matriz_confusao", "binary_metrics": "metricas", "robustness": "robustez"}
+
+
+def _copy_figures(runs, target: Path):
+    """Copy each run's figures under readable names. / Copia as figuras de cada run com nomes legíveis."""
+    if target.exists():
+        shutil.rmtree(target)
+    for run in runs:
+        folder = target / run["backbone"]
+        folder.mkdir(parents=True)
+        sources = [(project_root() / "output" / run["run_id"] / "figures", "treino_")]
+        sources += [(project_root() / run[kind]["dir"] / "figures", prefix) for kind, prefix in (("test", "teste_rlvs_"), ("external", "externo_rwf2000_"))]
+        for source, prefix in sources:
+            for figure in sorted(source.glob("*.p[dn][fg]")):
+                name = figure.stem.replace("training_history", "historico")
+                shutil.copy2(figure, folder / f"{prefix}{FIGURE_NAMES.get(name, name)}{figure.suffix}")
 
 
 if __name__ == "__main__":

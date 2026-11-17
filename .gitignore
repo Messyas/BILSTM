@@ -20,6 +20,9 @@ __pycache__/
 !/data/processed/README.md
 /output/**
 !/output/README.md
+# Resultados consolidados do protocolo fechado (tabelas, resumo e figuras; sem checkpoints)
+!/output/consolidado/
+!/output/consolidado/**
 !/output/img/
 /output/img/**
 !/output/img/README.md
