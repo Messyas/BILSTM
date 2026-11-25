@@ -1,0 +1,76 @@
+{
+  "threshold": 0.4691529129853099,
+  "target_fpr": 0.05,
+  "target_attained": true,
+  "allowed_false_positives": 8,
+  "validation_negatives": 160,
+  "validation_positives": 159,
+  "validation_false_positives": 8,
+  "validation_true_positives": 155,
+  "validation_fpr": 0.05,
+  "validation_recall": 0.9748427672955975,
+  "tied_scores_at_threshold": 0,
+  "rule": "Smallest-margin threshold with validation FPR <= target_fpr (maximizes validation recall under the FPR cap); placed halfway between the highest rejected negative score and the next higher validation score; positive when score >= threshold.",
+  "split": "validation",
+  "dataset": "RLVS",
+  "validation_ids_sha256": "c93d43706b0fae46fe552532ba2a3511668bc8cb6375f567e1190fb779643795",
+  "checkpoint_sha256": "4c3ccd9efa5cc22ca24aaba828053a585a7f95445cf36c76249f875a052ef71c",
+  "reference_metrics_at_0_5": {
+    "confusion_matrix": [
+      [
+        152,
+        8
+      ],
+      [
+        4,
+        155
+      ]
+    ],
+    "positive_class": 1,
+    "total": 319,
+    "accuracy": 0.9623824451410659,
+    "specificity": 0.95,
+    "false_positive_rate": 0.05,
+    "classes": {
+      "0": {
+        "precision": 0.9743589743589743,
+        "recall": 0.95,
+        "f1": 0.9620253164556962,
+        "support": 160
+      },
+      "1": {
+        "precision": 0.950920245398773,
+        "recall": 0.9748427672955975,
+        "f1": 0.9627329192546584,
+        "support": 159
+      }
+    },
+    "f1_macro": 0.9623791178551773,
+    "f1_weighted": 0.9623780087598811
+  },
+  "note": "The validation split also selected best.pt (EarlyStopping/ReduceLROnPlateau), so FPR on unseen data may exceed the target.",
+  "created_utc": "2026-11-16T23:43:07.958394+00:00",
+  "hardware": {
+    "hostname": "work1",
+    "os": "Linux-7.0.0-28-generic-x86_64-with-glibc2.39",
+    "cpu": {
+      "model": "AMD EPYC 7662 64-Core Processor",
+      "physical_cores": 128,
+      "logical_cpus": 128,
+      "cpus_allocated_to_process": 8
+    },
+    "ram_gib": 503.4,
+    "gpu": null,
+    "torch_threads": 8,
+    "torch_interop_threads": 128,
+    "environment": {
+      "OMP_NUM_THREADS": "8",
+      "MKL_NUM_THREADS": "8",
+      "OPENBLAS_NUM_THREADS": "8",
+      "CUDA_VISIBLE_DEVICES": null,
+      "SLURM_JOB_ID": "25560",
+      "SLURM_JOB_NODELIST": "work1",
+      "SLURM_CPUS_PER_TASK": "8"
+    }
+  }
+}

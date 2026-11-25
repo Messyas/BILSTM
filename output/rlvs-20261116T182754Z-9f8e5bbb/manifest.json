@@ -1,0 +1,12 @@
+{
+  "id": "rlvs-20261116T182754Z-9f8e5bbb",
+  "status": "completed",
+  "type": "proposed_reconstruction",
+  "dataset": "RLVS",
+  "dataset_manifest_sha256": "c4e8d5c3bed5fed29816e2c1c2d39b3aa0732e56bd11b0f53e58c732865c5630",
+  "started_utc": "2026-11-16T18:27:54.800209+00:00",
+  "finished_utc": "2026-11-16T18:31:28.127431+00:00",
+  "best_validation_loss": 0.1686959677962674,
+  "best_validation_accuracy": 0.9623824451410659,
+  "training_time_seconds": 213.33
+}
