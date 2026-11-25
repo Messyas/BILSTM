@@ -1,0 +1,76 @@
+{
+  "threshold": 0.8508162238930869,
+  "target_fpr": 0.05,
+  "target_attained": true,
+  "allowed_false_positives": 8,
+  "validation_negatives": 160,
+  "validation_positives": 159,
+  "validation_false_positives": 8,
+  "validation_true_positives": 144,
+  "validation_fpr": 0.05,
+  "validation_recall": 0.9056603773584906,
+  "tied_scores_at_threshold": 0,
+  "rule": "Smallest-margin threshold with validation FPR <= target_fpr (maximizes validation recall under the FPR cap); placed halfway between the highest rejected negative score and the next higher validation score; positive when score >= threshold.",
+  "split": "validation",
+  "dataset": "RLVS",
+  "validation_ids_sha256": "c93d43706b0fae46fe552532ba2a3511668bc8cb6375f567e1190fb779643795",
+  "checkpoint_sha256": "a9ced0770a963cffbebf3d9b2c4d59f33ae8436c72cb9947a11d8f22bbd4afc2",
+  "reference_metrics_at_0_5": {
+    "confusion_matrix": [
+      [
+        151,
+        9
+      ],
+      [
+        10,
+        149
+      ]
+    ],
+    "positive_class": 1,
+    "total": 319,
+    "accuracy": 0.9404388714733543,
+    "specificity": 0.94375,
+    "false_positive_rate": 0.05625,
+    "classes": {
+      "0": {
+        "precision": 0.937888198757764,
+        "recall": 0.94375,
+        "f1": 0.940809968847352,
+        "support": 160
+      },
+      "1": {
+        "precision": 0.9430379746835443,
+        "recall": 0.9371069182389937,
+        "f1": 0.9400630914826499,
+        "support": 159
+      }
+    },
+    "f1_macro": 0.940436530165001,
+    "f1_weighted": 0.9404377008191775
+  },
+  "note": "The validation split also selected best.pt (EarlyStopping/ReduceLROnPlateau), so FPR on unseen data may exceed the target.",
+  "created_utc": "2026-11-17T00:55:03.770896+00:00",
+  "hardware": {
+    "hostname": "work7",
+    "os": "Linux-7.0.0-28-generic-x86_64-with-glibc2.39",
+    "cpu": {
+      "model": "AMD Ryzen 9 7950X 16-Core Processor",
+      "physical_cores": 16,
+      "logical_cpus": 32,
+      "cpus_allocated_to_process": 8
+    },
+    "ram_gib": 187.8,
+    "gpu": null,
+    "torch_threads": 8,
+    "torch_interop_threads": 32,
+    "environment": {
+      "OMP_NUM_THREADS": "8",
+      "MKL_NUM_THREADS": "8",
+      "OPENBLAS_NUM_THREADS": "8",
+      "CUDA_VISIBLE_DEVICES": null,
+      "SLURM_JOB_ID": "25535",
+      "SLURM_JOB_NODELIST": "work7",
+      "SLURM_CPUS_PER_TASK": "8"
+    }
+  }
+}

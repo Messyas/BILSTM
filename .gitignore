@@ -23,11 +23,21 @@ __pycache__/
 # Resultados consolidados do protocolo fechado (tabelas, resumo e figuras; sem checkpoints)
 !/output/consolidado/
 !/output/consolidado/**
+# Modelos treinados: checkpoint, config, limiar congelado e histórico de cada run (MODELOS.md)
+!/output/MODELOS.md
+!/output/rlvs-*/
+!/output/rlvs-*/best.pt
+!/output/rlvs-*/effective_config.toml
+!/output/rlvs-*/threshold.json
+!/output/rlvs-*/manifest.json
+!/output/rlvs-*/history.json
 !/output/img/
 /output/img/**
 !/output/img/README.md
 *.pt
 *.pth
+# Exceção: checkpoints publicados dos runs (ver output/MODELOS.md)
+!/output/rlvs-*/best.pt
 *.ckpt
 *.h5
 *.keras
